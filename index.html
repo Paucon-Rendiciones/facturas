@@ -4,51 +4,83 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control de Facturas</title>
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1e293b">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body class="bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 font-sans antialiased pb-24 transition-colors duration-200">
 
     <script>
-        // URL de tu Apps Script
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwwc0S2F9Ss8RdGSaClBDB7m2MprqXux5wnFVBQQx_l7_dDYVQrTy4KegJtzuzpX_fcYg/exec";
     </script>
 
     <div class="max-w-md mx-auto p-4">
+        
         <header class="flex justify-between items-center mb-6">
             <div>
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Mis Rendiciones</h1>
                 <span id="contador-pendientes" class="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs font-semibold px-2.5 py-0.5 rounded-full">0 Pendientes</span>
             </div>
-            <button id="btn-theme" class="p-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm text-gray-600 dark:text-slate-300">
-                Modo Oscuro
+            
+            <button id="btn-theme" class="p-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition">
+                <svg id="theme-sun" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M16.243 17.657l.707.707M6.343 6.343l.707-.707M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <svg id="theme-moon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9 9 0 0012 21a8.944 8.944 0 008.354-5.646z"></path></svg>
             </button>
         </header>
 
         <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
-            <h2 class="text-lg font-semibold mb-3">1. Cargar Escaneo</h2>
-            <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer bg-gray-50 dark:bg-slate-900">
-                <p class="text-sm text-gray-500">Tomar Foto / Subir Factura</p>
+            <h2 class="text-lg font-semibold mb-3 text-gray-700 dark:text-slate-300">1. Cargar Escaneo</h2>
+            
+            <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl cursor-pointer bg-gray-50 dark:bg-slate-900 hover:bg-gray-100 dark:hover:bg-slate-800 transition">
+                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                    <svg class="w-8 h-8 mb-3 text-gray-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <p class="text-sm text-gray-500 dark:text-slate-400 font-medium">Tomar Foto / Subir Factura</p>
+                </div>
                 <input id="input-factura" type="file" accept="image/*" class="hidden" />
             </label>
-            <div id="ocr-status" class="hidden text-sm text-blue-600 font-medium mt-3 text-center animate-pulse">
-                Analizando con Gemini...
+
+            <div id="ocr-status" class="hidden text-sm text-blue-600 dark:text-blue-400 font-medium mt-3 animate-pulse text-center">
+                Procesando con IA Gemini... esto toma unos segundos...
             </div>
         </div>
 
         <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
-            <h2 class="text-lg font-semibold mb-3">2. Datos Detectados</h2>
+            <h2 class="text-lg font-semibold mb-3 text-gray-700 dark:text-slate-300">2. Datos Detectados</h2>
             <div class="space-y-3">
-                <input id="form-empresa" type="text" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="Empresa">
-                <div class="grid grid-cols-2 gap-3">
-                    <input id="form-numero" type="text" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="N° Factura">
-                    <input id="form-monto" type="number" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="Monto">
+                <div>
+                    <label class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase">Empresa / Proveedor</label>
+                    <input id="form-empresa" type="text" class="w-full mt-1 p-2 bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Esperando documento...">
                 </div>
-                <button id="btn-guardar" class="w-full bg-blue-600 text-white p-2.5 rounded-lg font-bold">Guardar Registro</button>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase">N° Factura</label>
+                        <input id="form-numero" type="text" class="w-full mt-1 p-2 bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono font-bold" placeholder="000000">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold text-gray-500 dark:text-slate-400 uppercase">Monto Total ($)</label>
+                        <input id="form-monto" type="number" class="w-full mt-1 p-2 bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold" placeholder="0">
+                    </div>
+                </div>
+                <button id="btn-guardar" class="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold p-2.5 rounded-lg text-sm transition shadow-sm cursor-pointer">
+                    Guardar Registro
+                </button>
             </div>
         </div>
 
-        <div id="lista-facturas" class="space-y-3"></div>
+        <div>
+            <h2 class="text-lg font-semibold mb-3 text-gray-700 dark:text-slate-300">Historial y Control</h2>
+            <div id="lista-facturas" class="space-y-3">
+                <p class="text-sm text-gray-500 dark:text-slate-400 text-center py-4">No tienes facturas registradas aún.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white dark:bg-slate-800 p-4 border-t border-gray-200 dark:border-slate-700 shadow-lg flex justify-center z-50">
+        <button onclick="abrirWhatsApp()" class="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md transition cursor-pointer">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+            Abrir WhatsApp
+        </button>
     </div>
 
     <script>
@@ -63,19 +95,39 @@
 
         document.addEventListener('DOMContentLoaded', cargarFacturasDesdeSheet);
 
-        inputFactura.addEventListener('change', async function(e) {
+        inputFactura.addEventListener('change', function(e) {
             const archivo = e.target.files[0];
             if (!archivo) return;
+
             ocrStatus.classList.remove('hidden');
-            
+            formEmpresa.value = "Analizando con Gemini...";
+            formNumero.value = "";
+            formMonto.value = "";
+
             const lector = new FileReader();
-            lector.onload = async function(evento) {
+            lector.onload = function(evento) {
                 const img = new Image();
                 img.onload = async function() {
                     const canvas = document.createElement('canvas');
-                    canvas.width = 800; canvas.height = (img.height * 800) / img.width;
-                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                    const base64Limpio = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
+                    let ancho = img.width;
+                    let alto = img.height;
+                    const maxDim = 1000;
+
+                    if (ancho > alto && ancho > maxDim) {
+                        alto *= maxDim / ancho;
+                        ancho = maxDim;
+                    } else if (alto > maxDim) {
+                        ancho *= maxDim / alto;
+                        alto = maxDim;
+                    }
+
+                    canvas.width = ancho;
+                    canvas.height = alto;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, ancho, alto);
+
+                    const base64Reducido = canvas.toDataURL('image/jpeg', 0.5);
+                    const base64Limpio = base64Reducido.split(',')[1];
 
                     try {
                         const respuesta = await fetch(WEB_APP_URL, {
@@ -83,15 +135,22 @@
                             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                             body: JSON.stringify({ action: "procesarImagen", base64Image: base64Limpio })
                         });
+
                         const texto = await respuesta.text();
+                        console.log("Respuesta Apps Script:", texto);
                         const datosIA = JSON.parse(texto);
-                        
-                        if (datosIA.error) throw new Error(datosIA.detalle);
-                        formEmpresa.value = datosIA.empresa || "";
-                        formNumero.value = datosIA.numero || "";
-                        formMonto.value = datosIA.monto || "";
+
+                        if (datosIA.error) {
+                            throw new Error(datosIA.detalle);
+                        }
+
+                        formEmpresa.value = datosIA.empresa || datosIA.Empresa || "No detectado";
+                        formNumero.value = datosIA.numero || datosIA.Numero || "";
+                        formMonto.value = datosIA.monto || datosIA.Monto || "";
                     } catch (error) {
-                        alert("Error IA: " + error.message);
+                        console.error("Error al procesar imagen:", error);
+                        formEmpresa.value = "";
+                        alert("Error al analizar la imagen. Intenta nuevamente.");
                     } finally {
                         ocrStatus.classList.add('hidden');
                     }
@@ -101,33 +160,127 @@
             lector.readAsDataURL(archivo);
         });
 
+        btnGuardar.addEventListener('click', async () => {
+            const empresa = formEmpresa.value.trim();
+            const numero = formNumero.value.trim();
+            const monto = formMonto.value.trim();
+
+            if (!empresa || !numero || !monto) {
+                alert("Verifica los datos antes de guardar.");
+                return;
+            }
+
+            btnGuardar.disabled = true;
+            btnGuardar.innerText = "Guardando...";
+
+            try {
+                await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: "add", empresa, numero, monto })
+                });
+
+                alert("¡Guardado correctamente!");
+                formEmpresa.value = ""; formNumero.value = ""; formMonto.value = "";
+                cargarFacturasDesdeSheet();
+            } catch (error) {
+                alert("Error al guardar en Google Sheets.");
+            } finally {
+                btnGuardar.disabled = false;
+                btnGuardar.innerText = "Guardar Registro";
+            }
+        });
+
         async function cargarFacturasDesdeSheet() {
             try {
                 const response = await fetch(WEB_APP_URL);
                 const datos = await response.json();
+                
+                if (!datos || datos.length === 0) {
+                    listaFacturas.innerHTML = `<p class="text-sm text-gray-500 text-center py-4">No hay facturas ingresadas.</p>`;
+                    contadorPendientes.innerText = "0 Pendientes";
+                    return;
+                }
+
                 listaFacturas.innerHTML = "";
                 let pendientes = 0;
-                datos.forEach(f => {
-                    if (f.estado === "Pendiente") pendientes++;
-                    listaFacturas.innerHTML += `
-                        <div class="p-4 bg-white dark:bg-slate-800 rounded-xl border flex justify-between items-center">
-                            <div><p class="font-bold">${f.empresa}</p><p class="text-sm">$${f.monto}</p></div>
-                            <button onclick="marcarComoPagada('${f.id}')" class="bg-blue-600 text-white px-3 py-1 rounded-lg text-xs">Pagar</button>
-                        </div>`;
+                datos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+                datos.forEach(factura => {
+                    const esPendiente = factura.estado.trim().toLowerCase() === "pendiente";
+                    if (esPendiente) pendientes++;
+
+                    const tarjeta = document.createElement('div');
+                    tarjeta.className = `p-4 rounded-xl border ${esPendiente ? 'border-red-300 bg-red-50 dark:bg-red-950/40 dark:border-red-800' : 'border-green-300 bg-green-50 dark:bg-green-950/40 dark:border-green-800'} flex flex-col justify-between mb-3`;
+                    tarjeta.innerHTML = `
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 class="font-bold text-gray-900 dark:text-white text-base">${factura.empresa}</h3>
+                                <p class="text-xs text-gray-500 dark:text-slate-400">Factura: <span class="font-mono font-semibold">${factura.numero || 'Sin N°'}</span></p>
+                            </div>
+                            <span class="text-xs font-bold px-2 py-0.5 rounded-md ${esPendiente ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">${esPendiente ? 'Pendiente' : 'Pagado'}</span>
+                        </div>
+                        <div class="flex justify-between items-center mt-2 pt-2 border-t ${esPendiente ? 'border-red-200 dark:border-red-800' : 'border-green-200 dark:border-green-800'}">
+                            <div>
+                                <p class="text-xs text-gray-500 dark:text-slate-400">Monto</p>
+                                <p class="text-lg font-extrabold text-gray-900 dark:text-white">$${parseInt(factura.monto).toLocaleString('es-CL')}</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                ${esPendiente 
+                                    ? `<button onclick="marcarComoPagada('${factura.id}')" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-1.5 px-3 rounded-lg cursor-pointer transition">✓ Marcar Pago</button>`
+                                    : `<span class="text-xs font-bold text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/50 px-2 py-1 rounded-lg">✓ Pagada</span>`
+                                }
+                                <button onclick="eliminarRegistro('${factura.id}')" class="bg-white dark:bg-slate-700 border border-red-300 dark:border-red-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 text-sm font-bold py-1.5 px-2 rounded-lg cursor-pointer transition" title="Eliminar">🗑️</button>
+                            </div>
+                        </div>
+                    `;
+                    listaFacturas.appendChild(tarjeta);
                 });
-                contadorPendientes.innerText = pendientes + " Pendientes";
-            } catch (e) { listaFacturas.innerText = "Error cargando datos."; }
+                contadorPendientes.innerText = `${pendientes} Pendientes`;
+            } catch (error) {
+                listaFacturas.innerHTML = `<p class="text-sm text-red-500 text-center py-4">Error al cargar datos.</p>`;
+            }
+        }
+
+        async function eliminarRegistro(id) {
+            if (!confirm("¿Eliminar este registro?")) return;
+            try {
+                await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: "delete", id: id })
+                });
+                cargarFacturasDesdeSheet();
+            } catch (error) {
+                alert("Error al eliminar el registro.");
+            }
+        }
+
+        function abrirWhatsApp() {
+            window.location.href = 'whatsapp://';
+            setTimeout(() => {
+                window.open('https://web.whatsapp.com', '_blank');
+            }, 1500);
         }
 
         async function marcarComoPagada(id) {
-            await fetch(WEB_APP_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: "updateStatus", id: id, status: "Pagado" })
-            });
-            cargarFacturasDesdeSheet();
+            if (!confirm("¿Confirmas el pago?")) return;
+            try {
+                await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: "updateStatus", id: id, status: "Pagado" })
+                });
+                cargarFacturasDesdeSheet();
+            } catch (error) {
+                alert("Error al actualizar el estado.");
+            }
         }
 
-        document.getElementById('btn-theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+        const btnTheme = document.getElementById('btn-theme');
+        btnTheme.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+        });
     </script>
 </body>
 </html>
