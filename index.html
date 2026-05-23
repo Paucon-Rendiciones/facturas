@@ -1,563 +1,189 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Control de Facturas</title>
-
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1e293b">
 
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 
-<body class="bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 font-sans antialiased pb-24 transition-colors duration-200">
+<body class="bg-gray-100 text-gray-800 p-4">
+
+<div class="max-w-md mx-auto">
+
+<h1 class="text-2xl font-bold mb-4">Facturas OCR</h1>
+
+<input type="file" id="file" accept="image/*"
+class="mb-4"/>
+
+<div id="status" class="text-blue-600 mb-4"></div>
+
+<input id="empresa" placeholder="Empresa"
+class="w-full p-2 border mb-2"/>
+
+<input id="numero" placeholder="Número"
+class="w-full p-2 border mb-2"/>
+
+<input id="monto" placeholder="Monto"
+class="w-full p-2 border mb-2"/>
+
+<button id="guardar"
+class="bg-blue-600 text-white px-4 py-2 rounded">
+Guardar
+</button>
+
+</div>
 
 <script>
+
+// 🔴 CAMBIA SOLO ESTA URL POR TU DEPLOY ACTUAL
 const WEB_APP_URL =
-"https://script.google.com/macros/s/AKfycbwbrG-NZHI73Qy0xp6n68cuU1-DuKNsP0MIuhY6FmtLAPh-3h6Co1VlTG2_rC0kWcObeQ/exec";
-</script>
+"https://script.google.com/macros/s/TU_DEPLOY/exec";
 
-<div class="max-w-md mx-auto p-4">
+const fileInput = document.getElementById("file");
+const statusDiv = document.getElementById("status");
 
-<header class="flex justify-between items-center mb-6">
+const empresa = document.getElementById("empresa");
+const numero = document.getElementById("numero");
+const monto = document.getElementById("monto");
 
-<div>
-<h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-Mis Rendiciones
-</h1>
-
-<span id="contador-pendientes"
-class="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs font-semibold px-2.5 py-0.5 rounded-full">
-0 Pendientes
-</span>
-</div>
-
-<button id="btn-theme"
-class="p-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm">
-🌙
-</button>
-
-</header>
-
-<!-- CARGAR -->
-<div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
-
-<h2 class="text-lg font-semibold mb-3">
-1. Cargar Escaneo
-</h2>
-
-<label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl cursor-pointer bg-gray-50 dark:bg-slate-900 hover:bg-gray-100">
-
-<div class="flex flex-col items-center justify-center pt-5 pb-6">
-<p class="text-sm text-gray-500 font-medium">
-Tomar Foto / Subir Factura
-</p>
-</div>
-
-<input
-id="input-factura"
-type="file"
-accept="image/*"
-capture="environment"
-class="hidden"
-/>
-
-</label>
-
-<div id="ocr-status"
-class="hidden text-sm text-blue-600 font-medium mt-3 animate-pulse text-center">
-Procesando con IA Gemini...
-</div>
-
-</div>
-
-<!-- FORM -->
-<div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
-
-<h2 class="text-lg font-semibold mb-3">
-2. Datos Detectados
-</h2>
-
-<div class="space-y-3">
-
-<div>
-<label class="text-xs font-semibold uppercase">
-Empresa
-</label>
-
-<input
-id="form-empresa"
-type="text"
-placeholder="Esperando documento..."
-class="w-full mt-1 p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg"
-/>
-</div>
-
-<div class="grid grid-cols-2 gap-3">
-
-<div>
-<label class="text-xs font-semibold uppercase">
-N° Factura
-</label>
-
-<input
-id="form-numero"
-type="text"
-class="w-full mt-1 p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg"
-/>
-</div>
-
-<div>
-<label class="text-xs font-semibold uppercase">
-Monto
-</label>
-
-<input
-id="form-monto"
-type="number"
-class="w-full mt-1 p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg"
-/>
-</div>
-
-</div>
-
-<button
-id="btn-guardar"
-class="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold p-2.5 rounded-lg">
-Guardar Registro
-</button>
-
-</div>
-
-</div>
-
-<!-- HISTORIAL -->
-<div>
-
-<h2 class="text-lg font-semibold mb-3">
-Historial y Control
-</h2>
-
-<div id="lista-facturas"></div>
-
-</div>
-
-</div>
-
-<script>
-
-// ELEMENTOS
-const inputFactura =
-document.getElementById('input-factura');
-
-const ocrStatus =
-document.getElementById('ocr-status');
-
-const formEmpresa =
-document.getElementById('form-empresa');
-
-const formNumero =
-document.getElementById('form-numero');
-
-const formMonto =
-document.getElementById('form-monto');
-
-const btnGuardar =
-document.getElementById('btn-guardar');
-
-const listaFacturas =
-document.getElementById('lista-facturas');
-
-const contadorPendientes =
-document.getElementById('contador-pendientes');
-
-// INIT
-document.addEventListener(
-'DOMContentLoaded',
-cargarFacturasDesdeSheet
-);
-
-// =====================================
+// ============================
 // SUBIR IMAGEN
-// =====================================
-inputFactura.addEventListener(
-'change',
-function(e){
+// ============================
+fileInput.addEventListener("change", (e) => {
 
-const archivo =
-e.target.files[0];
+const file = e.target.files[0];
+if (!file) return;
 
-if(!archivo) return;
+statusDiv.innerText = "Procesando imagen...";
 
-ocrStatus.classList.remove(
-'hidden'
-);
+const reader = new FileReader();
 
-formEmpresa.value =
-"Analizando...";
+reader.onload = async function(evt) {
 
-formNumero.value = "";
-formMonto.value = "";
+const img = new Image();
 
-const lector =
-new FileReader();
-
-lector.onload =
-function(evento){
-
-const img =
-new Image();
-
-img.onload =
-async function(){
+img.onload = async function() {
 
 try {
 
-const canvas =
-document.createElement(
-'canvas'
-);
+// Canvas resize
+const canvas = document.createElement("canvas");
 
-let ancho =
-img.width;
+let w = img.width;
+let h = img.height;
 
-let alto =
-img.height;
+const max = 800;
 
-// REDUCIR
-const maxDim = 500;
-
-if(
-ancho > alto &&
-ancho > maxDim
-){
-alto *= maxDim/ancho;
-ancho = maxDim;
-}
-else if(alto > maxDim){
-ancho *= maxDim/alto;
-alto = maxDim;
+if (w > h && w > max) {
+h *= max / w;
+w = max;
+} else if (h > max) {
+w *= max / h;
+h = max;
 }
 
-canvas.width = ancho;
-canvas.height = alto;
+canvas.width = w;
+canvas.height = h;
 
-const ctx =
-canvas.getContext('2d');
+const ctx = canvas.getContext("2d");
+ctx.drawImage(img, 0, 0, w, h);
 
-ctx.drawImage(
-img,
-0,
-0,
-ancho,
-alto
-);
+// calidad media
+const base64 = canvas.toDataURL("image/jpeg", 0.5).split(",")[1];
 
-// CALIDAD
-const calidad = 0.15;
+console.log("BASE64:", base64.length);
 
-const dataURL =
-canvas.toDataURL(
-'image/jpeg',
-calidad
-);
-
-const partes =
-dataURL.split(',');
-
-const mimeType =
-partes[0]
-.match(/data:(.*);base64/)[1];
-
-const base64Limpio =
-partes[1];
-
-console.log(
-"Tamaño base64:",
-base64Limpio.length
-);
-
-console.log(
-"MIME:",
-mimeType
-);
-
-// FETCH
-const respuesta =
-await fetch(
-WEB_APP_URL,
-{
-method:'POST',
-
-headers:{
-'Content-Type':
-'text/plain;charset=utf-8'
-},
-
+// ============================
+// FETCH A APPS SCRIPT
+// ============================
+const res = await fetch(WEB_APP_URL, {
+method: "POST",
 body: JSON.stringify({
-action:"procesarImagen",
-base64Image: base64Limpio,
-mimeType: mimeType,
-nombreArchivo: archivo.name
-})
+action: "procesarImagen",
+base64Image: base64,
+mimeType: "image/jpeg"
+}),
+headers: {
+"Content-Type": "text/plain;charset=utf-8"
 }
-);
+});
 
-const texto =
-await respuesta.text();
+// IMPORTANTE: leer como text primero
+const text = await res.text();
 
-console.log(
-"======== RESPUESTA RAW ========"
-);
+console.log("RAW RESPONSE:", text);
 
-console.log(texto);
-
-console.log(
-"======== FIN RESPUESTA ========"
-);
-
-// VALIDAR
-let datosIA = null;
+// ============================
+// PARSE SEGURO
+// ============================
+let data;
 
 try {
-
-datosIA =
-JSON.parse(texto);
-
-}
-catch(parseError){
-
-console.error(
-"RESPUESTA INVALIDA:"
-);
-
-console.error(texto);
-
-alert(
-"Respuesta inválida de Apps Script"
-);
-
+data = JSON.parse(text);
+} catch (e) {
+console.error("JSON inválido:", text);
+statusDiv.innerText = "Error: respuesta inválida del servidor";
 return;
-
 }
 
-// ERROR
-if(datosIA.error){
-
-console.error(
-"ERROR APPS SCRIPT:"
-);
-
-console.error(datosIA);
-
-alert(
-datosIA.detalle ||
-"Error Apps Script"
-);
-
+// ============================
+// ERROR BACKEND
+// ============================
+if (data.error) {
+console.error("ERROR BACKEND:", data);
+statusDiv.innerText = data.detalle || "Error en servidor";
 return;
-
 }
 
-// RELLENAR
-formEmpresa.value =
-datosIA.empresa ||
-"No detectado";
+// ============================
+// RELLENAR FORM
+// ============================
+empresa.value = data.empresa || "";
+numero.value = data.numero || "";
+monto.value = data.monto || "";
 
-formNumero.value =
-datosIA.numero || "";
+statusDiv.innerText = "Listo ✔";
 
-formMonto.value =
-datosIA.monto || "";
-
-}
-catch(error){
-
-console.error(
-"ERROR GENERAL:"
-);
-
-console.error(error);
-
-alert(
-"Error al analizar imagen"
-);
-
-formEmpresa.value="";
-formNumero.value="";
-formMonto.value="";
-}
-finally{
-
-ocrStatus.classList.add(
-'hidden'
-);
-
+} catch (err) {
+console.error(err);
+statusDiv.innerText = "Error procesando imagen";
 }
 
 };
 
-img.src =
-evento.target.result;
+img.src = evt.target.result;
 
 };
 
-lector.readAsDataURL(
-archivo
-);
-
-}
-);
-
-// =====================================
-// GUARDAR
-// =====================================
-btnGuardar.addEventListener(
-'click',
-async ()=>{
-
-const empresa =
-formEmpresa.value.trim();
-
-const numero =
-formNumero.value.trim();
-
-const monto =
-formMonto.value.trim();
-
-if(
-!empresa ||
-!numero ||
-!monto
-){
-alert("Completa datos");
-return;
-}
-
-try {
-
-await fetch(
-WEB_APP_URL,
-{
-method:'POST',
-
-headers:{
-'Content-Type':
-'text/plain;charset=utf-8'
-},
-
-body: JSON.stringify({
-action:"add",
-empresa,
-numero,
-monto
-})
-}
-);
-
-alert(
-"Guardado correctamente"
-);
-
-formEmpresa.value="";
-formNumero.value="";
-formMonto.value="";
-
-cargarFacturasDesdeSheet();
-
-}
-catch(error){
-
-console.error(error);
-
-alert(
-"Error al guardar"
-);
-
-}
-
-}
-);
-
-// =====================================
-// LISTA
-// =====================================
-async function cargarFacturasDesdeSheet(){
-
-try {
-
-const response =
-await fetch(WEB_APP_URL);
-
-const datos =
-await response.json();
-
-contadorPendientes.innerText =
-datos.filter(
-x=>x.estado==="Pendiente"
-).length + " Pendientes";
-
-listaFacturas.innerHTML = "";
-
-datos.reverse().forEach(factura=>{
-
-const card =
-document.createElement('div');
-
-card.className =
-"bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-3 mb-3";
-
-card.innerHTML = `
-<div class="flex justify-between items-start">
-<div>
-<div class="font-semibold text-sm">
-${factura.empresa}
-</div>
-
-<div class="text-xs opacity-70">
-#${factura.numero}
-</div>
-
-<div class="text-lg font-bold mt-1">
-$${Number(factura.monto).toLocaleString('es-CL')}
-</div>
-</div>
-
-<div>
-<span class="text-xs px-2 py-1 rounded-full ${
-factura.estado === 'Pagado'
-? 'bg-green-100 text-green-700'
-: 'bg-yellow-100 text-yellow-700'
-}">
-${factura.estado}
-</span>
-</div>
-</div>
-`;
-
-listaFacturas.appendChild(card);
+reader.readAsDataURL(file);
 
 });
 
+// ============================
+// GUARDAR
+// ============================
+document.getElementById("guardar").onclick = async () => {
+
+await fetch(WEB_APP_URL, {
+method: "POST",
+body: JSON.stringify({
+action: "add",
+empresa: empresa.value,
+numero: numero.value,
+monto: monto.value
+}),
+headers: {
+"Content-Type": "text/plain;charset=utf-8"
 }
-catch(error){
+});
 
-console.error(error);
+alert("Guardado");
 
-}
-
-}
-
-// =====================================
-// THEME
-// =====================================
-document.getElementById(
-'btn-theme'
-).onclick = ()=>{
-
-document.documentElement
-.classList.toggle('dark');
+empresa.value = "";
+numero.value = "";
+monto.value = "";
 
 };
 
