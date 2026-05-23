@@ -11,7 +11,6 @@
 <body class="bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 font-sans antialiased pb-24 transition-colors duration-200">
 
     <script>
-        // CONFIGURACIÓN CENTRAL INTEGRADA
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwwc0S2F9Ss8RdGSaClBDB7m2MprqXux5wnFVBQQx_l7_dDYVQrTy4KegJtzuzpX_fcYg/exec";
     </script>
 
@@ -127,41 +126,32 @@
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, ancho, alto);
 
-                    const base64Reducido = canvas.toDataURL('image/jpeg', 0.7);
+                    const base64Reducido = canvas.toDataURL('image/jpeg', 0.5);
                     const base64Limpio = base64Reducido.split(',')[1];
 
-                    // CONEXIÓN DIRECTA A LA API DE GEMINI SIN PASAR POR APPS SCRIPT
-                    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-                    
-                    const payload = {
-                        contents: [{
-                            parts: [
-                                { text: "Analiza esta imagen de un documento de gasto chileno (factura, boleta o ticket de peaje). Extrae exclusivamente los siguientes campos en un formato JSON estricto, sin markdown, sin texto extra, solo el objeto limpio. Campos a extraer: 'empresa' (nombre comercial corto del proveedor, ej: Copec, Sodimac, Rutas del Desierto), 'numero' (número de factura o folio, si es un peaje usa el número de transacción/boleta o 'TR Nro'), 'monto' (valor total final como número entero, sin puntos ni comas). Ejemplo: {\"empresa\": \"Copec\", \"numero\": \"23465816\", \"monto\": 78524}" },
-                                { inlineData: { mimeType: "image/jpeg", data: base64Limpio } }
-                            ]
-                        }]
-                    };
-
+                    // LLAMADA A GEMINI A TRAVÉS DE APPS SCRIPT (API key segura en el servidor)
                     try {
-                        const respuesta = await fetch(geminiUrl, {
+                        const respuesta = await fetch(WEB_APP_URL, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({ action: "procesarImagen", base64Image: base64Limpio })
                         });
 
-                        const resultadoJson = await respuesta.json();
-                        let textoIA = resultadoJson.candidates[0].content.parts[0].text;
-                        textoIA = textoIA.replace(/```json/g, "").replace(/```/g, "").trim();
-                        
-                        const datosIA = JSON.parse(textoIA);
-                        
-                        formEmpresa.value = datosIA.empresa || "Desconocido";
-                        formNumero.value = datosIA.numero || "";
-                        formMonto.value = datosIA.monto || "";
+                        const texto = await respuesta.text();
+                        console.log("Respuesta Apps Script:", texto);
+                        const datosIA = JSON.parse(texto);
+
+                        if (datosIA.error) {
+                            throw new Error(datosIA.detalle);
+                        }
+
+                        formEmpresa.value = datosIA.empresa || datosIA.Empresa || "No detectado";
+                        formNumero.value = datosIA.numero || datosIA.Numero || "";
+                        formMonto.value = datosIA.monto || datosIA.Monto || "";
                     } catch (error) {
-                        console.error("Error directo de Gemini:", error);
+                        console.error("Error al procesar imagen:", error);
                         formEmpresa.value = "";
-                        alert("Error al analizar la imagen con Gemini. Intenta nuevamente.");
+                        alert("Error al analizar la imagen. Intenta nuevamente.");
                     } finally {
                         ocrStatus.classList.add('hidden');
                     }
