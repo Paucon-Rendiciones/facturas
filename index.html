@@ -40,7 +40,7 @@ class="p-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:bor
 
 </header>
 
-<!-- CARGA -->
+<!-- CARGAR -->
 <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
 
 <h2 class="text-lg font-semibold mb-3">
@@ -59,6 +59,7 @@ Tomar Foto / Subir Factura
 id="input-factura"
 type="file"
 accept="image/*"
+capture="environment"
 class="hidden"
 />
 
@@ -224,8 +225,8 @@ img.width;
 let alto =
 img.height;
 
-// REDUCIR TAMAÑO
-const maxDim = 600;
+// REDUCIR
+const maxDim = 500;
 
 if(
 ancho > alto &&
@@ -253,8 +254,8 @@ ancho,
 alto
 );
 
-// CALIDAD JPEG
-const calidad = 0.25;
+// CALIDAD
+const calidad = 0.15;
 
 const dataURL =
 canvas.toDataURL(
@@ -317,7 +318,7 @@ console.log(
 "======== FIN RESPUESTA ========"
 );
 
-// VALIDAR JSON
+// VALIDAR
 let datosIA = null;
 
 try {
@@ -335,14 +336,14 @@ console.error(
 console.error(texto);
 
 alert(
-"Apps Script devolvió respuesta inválida. Abre consola."
+"Respuesta inválida de Apps Script"
 );
 
 return;
 
 }
 
-// VALIDAR ERROR
+// ERROR
 if(datosIA.error){
 
 console.error(
@@ -481,7 +482,7 @@ alert(
 );
 
 // =====================================
-// CARGAR LISTA
+// LISTA
 // =====================================
 async function cargarFacturasDesdeSheet(){
 
@@ -499,6 +500,46 @@ x=>x.estado==="Pendiente"
 ).length + " Pendientes";
 
 listaFacturas.innerHTML = "";
+
+datos.reverse().forEach(factura=>{
+
+const card =
+document.createElement('div');
+
+card.className =
+"bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-3 mb-3";
+
+card.innerHTML = `
+<div class="flex justify-between items-start">
+<div>
+<div class="font-semibold text-sm">
+${factura.empresa}
+</div>
+
+<div class="text-xs opacity-70">
+#${factura.numero}
+</div>
+
+<div class="text-lg font-bold mt-1">
+$${Number(factura.monto).toLocaleString('es-CL')}
+</div>
+</div>
+
+<div>
+<span class="text-xs px-2 py-1 rounded-full ${
+factura.estado === 'Pagado'
+? 'bg-green-100 text-green-700'
+: 'bg-yellow-100 text-yellow-700'
+}">
+${factura.estado}
+</span>
+</div>
+</div>
+`;
+
+listaFacturas.appendChild(card);
+
+});
 
 }
 catch(error){
