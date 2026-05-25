@@ -10,8 +10,7 @@
 <body class="bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 font-sans antialiased pb-24 transition-colors duration-200">
 
     <script>
-        // URL de tu Apps Script
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyGPTWmK3YQ1q88MnMv75NV4M3XP4b31aTS3PhBoAAmLhm3w3OmcIwCTO5CO71YFCpg-g/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyOWjVhRSvJODa_IsdUijTvBAKvedgEWjbzS8yNPCRp6ymO-Jq1o0uQXRFPhwu3j9Attg/exec";
     </script>
 
     <div class="max-w-md mx-auto p-4">
@@ -63,7 +62,7 @@
 
         document.addEventListener('DOMContentLoaded', cargarFacturasDesdeSheet);
 
-inputFactura.addEventListener('change', async function(e) {
+        inputFactura.addEventListener('change', async function(e) {
             const archivo = e.target.files[0];
             if (!archivo) return;
             ocrStatus.classList.remove('hidden');
@@ -73,20 +72,18 @@ inputFactura.addEventListener('change', async function(e) {
                 const img = new Image();
                 img.onload = async function() {
                     const canvas = document.createElement('canvas');
-                    // Aumentamos el ancho a 1600px para capturar texto pequeño en documentos A4
+                    // OPTIMIZADO: 1600px de ancho para no perder nitidez en textos chicos
                     canvas.width = 1600; canvas.height = (img.height * 1600) / img.width;
                     canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-
-                    // Subimos la calidad a 0.85 para evitar artefactos de compresión
+                    // OPTIMIZADO: Calidad 0.85 para evitar borrosidad
                     const base64Limpio = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
 
                     try {
-                        // Eliminado 'headers' para evitar bloqueos CORS / Preflight OPTIONS en Apps Script
                         const respuesta = await fetch(WEB_APP_URL, {
                             method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                             body: JSON.stringify({ action: "procesarImagen", base64Image: base64Limpio })
                         });
-                        
                         const texto = await respuesta.text();
                         const datosIA = JSON.parse(texto);
                         
@@ -95,7 +92,7 @@ inputFactura.addEventListener('change', async function(e) {
                         formNumero.value = datosIA.numero || "";
                         formMonto.value = datosIA.monto || "";
                     } catch (error) {
-                        alert("Error detectado en Cliente: " + error.message);
+                        alert("Error IA: " + error.message);
                     } finally {
                         ocrStatus.classList.add('hidden');
                     }
