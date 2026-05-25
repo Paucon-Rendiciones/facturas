@@ -6,12 +6,11 @@
     <title>Control de Facturas</title>
     <meta name="theme-color" content="#1e293b">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 font-sans antialiased pb-24 transition-colors duration-200">
 
     <script>
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyOWjVhRSvJODa_IsdUijTvBAKvedgEWjbzS8yNPCRp6ymO-Jq1o0uQXRFPhwu3j9Attg/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwbrG-NZHI73Qy0xp6n68cuU1-DuKNsP0MIuhY6FmtLAPh-3h6Co1VlTG2_rC0kWcObeQ/exec";
         let facturasGlobales = [];
     </script>
 
@@ -49,15 +48,12 @@
             </div>
         </div>
 
-        <div id="panel-reportes" class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6 hidden grid grid-cols-3 gap-2">
-            <button onclick="enviarWhatsApp()" class="bg-emerald-600 hover:bg-emerald-700 text-white p-2.5 rounded-xl text-[11px] font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors">
-                <span>WhatsApp</span>
+        <div id="panel-reportes" class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6 hidden grid grid-cols-2 gap-3">
+            <button onclick="enviarWhatsApp()" class="bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors">
+                <span>Enviar por WhatsApp</span>
             </button>
-            <button onclick="copiarReporteTexto()" class="bg-slate-600 hover:bg-slate-700 text-white p-2.5 rounded-xl text-[11px] font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors">
+            <button onclick="copiarReporteTexto()" class="bg-slate-600 hover:bg-slate-700 text-white p-3 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors">
                 <span>Copiar Texto</span>
-            </button>
-            <button onclick="descargarPDF()" class="bg-red-600 hover:bg-red-700 text-white p-2.5 rounded-xl text-[11px] font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors">
-                <span>Bajar PDF</span>
             </button>
         </div>
 
@@ -190,7 +186,7 @@
                                 <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded ${f.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400'}">${f.estado}</span>
                             </div>
                             <div class="flex items-center gap-2">
-                                ${f.estado === "Pendiente" ? `<button onclick="marcarComoPagada('${f.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer">PAGADA</button>` : ''}
+                                ${f.estado === "Pendiente" ? `<button onclick=\"marcarComoPagada('${f.id}')\" class=\"bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer\">PAGADA</button>` : ''}
                                 <button onclick="eliminarRegistro('${f.id}')" class="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer" title="Eliminar">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -234,7 +230,6 @@
             }
         }
 
-        // Estructuración limpia del texto para bloques legibles en WhatsApp
         function construirTextoReporte() {
             const pendientes = facturasGlobales.filter(f => f.estado === "Pendiente");
             if (pendientes.length === 0) return "";
@@ -266,69 +261,10 @@
             if (!msg) return alert("No hay registros pendientes.");
             try {
                 await navigator.clipboard.writeText(msg);
-                alert("Reporte copiado.");
+                alert("Reporte copiado al portapapeles de forma ordenada.");
             } catch (err) {
-                alert("Error al copiar.");
+                alert("Error al copiar texto.");
             }
-        }
-
-        // Generador dinámico de la tabla PDF en limpio
-        function descargarPDF() {
-            const pendientes = facturasGlobales.filter(f => f.estado === "Pendiente");
-            if (pendientes.length === 0) return alert("No hay facturas pendientes para exportar.");
-
-            const contenedorPdf = document.createElement('div');
-            contenedorPdf.style.padding = '30px';
-            contenedorPdf.style.fontFamily = 'Arial, sans-serif';
-            contenedorPdf.style.color = '#1e293b';
-            
-            let total = 0;
-            let filas = '';
-            pendientes.forEach((f, i) => {
-                total += Number(f.monto || 0);
-                filas += `
-                    <tr style="border-bottom: 1px solid #e2e8f0;">
-                        <td style="padding: 12px; text-align: left; font-size: 13px;">${i + 1}</td>
-                        <td style="padding: 12px; text-align: left; font-size: 13px; font-weight: bold;">${f.empresa}</td>
-                        <td style="padding: 12px; text-align: left; font-size: 13px;">${f.numero || 'S/N'}</td>
-                        <td style="padding: 12px; text-align: right; font-size: 13px; font-weight: bold;">$${Number(f.monto).toLocaleString('es-CL')}</td>
-                    </tr>
-                `;
-            });
-
-            contenedorPdf.innerHTML = `
-                <div style="margin-bottom: 25px; border-bottom: 3px solid #1e293b; padding-bottom: 15px;">
-                    <h1 style="font-size: 26px; color: #1e293b; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Reporte de Rendiciones</h1>
-                    <p style="font-size: 14px; color: #475569; margin: 6px 0 0 0; font-weight: bold;">Estado: Facturas Rendidas y no Liquidadas</p>
-                    <p style="font-size: 11px; color: #94a3b8; margin: 4px 0 0 0;">Fecha de emisión: ${new Date().toLocaleDateString('es-CL')}</p>
-                </div>
-                <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
-                    <thead>
-                        <tr style="background-color: #1e293b; color: white;">
-                            <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase;">Item</th>
-                            <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase;">Empresa</th>
-                            <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase;">N° Factura</th>
-                            <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase;">Monto</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${filas}
-                    </tbody>
-                </table>
-                <div style="margin-top: 35px; border-top: 2px solid #1e293b; padding-top: 15px; text-align: right; font-size: 18px; font-weight: bold; color: #1e293b;">
-                    Total Pendiente Liquidación: $${total.toLocaleString('es-CL')}
-                </div>
-            `;
-
-            const config = {
-                margin:       15,
-                filename:     `Rendiciones_Pendientes_${new Date().toISOString().slice(0,10)}.pdf`,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
-            html2pdf().set(config).from(contenedorPdf).save();
         }
 
         document.getElementById('btn-theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
