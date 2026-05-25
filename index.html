@@ -6,11 +6,12 @@
     <title>Control de Facturas</title>
     <meta name="theme-color" content="#1e293b">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 font-sans antialiased pb-24 transition-colors duration-200">
 
     <script>
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwbrG-NZHI73Qy0xp6n68cuU1-DuKNsP0MIuhY6FmtLAPh-3h6Co1VlTG2_rC0kWcObeQ/exec";
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyOWjVhRSvJODa_IsdUijTvBAKvedgEWjbzS8yNPCRp6ymO-Jq1o0uQXRFPhwu3j9Attg/exec";
         let facturasGlobales = [];
     </script>
 
@@ -48,12 +49,15 @@
             </div>
         </div>
 
-        <div id="panel-reportes" class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6 hidden grid grid-cols-2 gap-3">
-            <button onclick="enviarWhatsApp()" class="bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors">
-                <span>Enviar por WhatsApp</span>
+        <div id="panel-reportes" class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6 hidden grid grid-cols-3 gap-2">
+            <button onclick="enviarWhatsApp()" class="bg-emerald-600 hover:bg-emerald-700 text-white p-2.5 rounded-xl text-[11px] font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors">
+                <span>WhatsApp</span>
             </button>
-            <button onclick="copiarReporteTexto()" class="bg-slate-600 hover:bg-slate-700 text-white p-3 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors">
+            <button onclick="copiarReporteTexto()" class="bg-slate-600 hover:bg-slate-700 text-white p-2.5 rounded-xl text-[11px] font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors">
                 <span>Copiar Texto</span>
+            </button>
+            <button onclick="descargarPDF()" class="bg-red-600 hover:bg-red-700 text-white p-2.5 rounded-xl text-[11px] font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors">
+                <span>Bajar PDF</span>
             </button>
         </div>
 
@@ -186,7 +190,7 @@
                                 <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded ${f.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400'}">${f.estado}</span>
                             </div>
                             <div class="flex items-center gap-2">
-                                ${f.estado === "Pendiente" ? `<button onclick=\"marcarComoPagada('${f.id}')\" class=\"bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer\">PAGADA</button>` : ''}
+                                ${f.estado === "Pendiente" ? `<button onclick="marcarComoPagada('${f.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer">PAGADA</button>` : ''}
                                 <button onclick="eliminarRegistro('${f.id}')" class="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer" title="Eliminar">
                                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -230,6 +234,7 @@
             }
         }
 
+        // Estructuración limpia del texto para bloques legibles en WhatsApp
         function construirTextoReporte() {
             const pendientes = facturasGlobales.filter(f => f.estado === "Pendiente");
             if (pendientes.length === 0) return "";
@@ -261,10 +266,406 @@
             if (!msg) return alert("No hay registros pendientes.");
             try {
                 await navigator.clipboard.writeText(msg);
-                alert("Reporte copiado al portapapeles de forma ordenada.");
+                alert("Reporte copiado.");
             } catch (err) {
-                alert("Error al copiar texto.");
+                alert("Error al copiar.");
             }
+        }
+
+        // Generador dinámico de la tabla PDF en limpio
+        function descargarPDF() {
+            const pendientes = facturasGlobales.filter(f => f.estado === "Pendiente");
+            if (pendientes.length === 0) return alert("No hay facturas pendientes para exportar.");
+
+            const contenedorPdf = document.createElement('div');
+            contenedorPdf.style.padding = '30px';
+            contenedorPdf.style.fontFamily = 'Arial, sans-serif';
+            contenedorPdf.style.color = '#1e293b';
+            
+            let total = 0;
+            let filas = '';
+            pendientes.forEach((f, i) => {
+                total += Number(f.monto || 0);
+                filas += `
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 12px; text-align: left; font-size: 13px;">${i + 1}</td>
+                        <td style="padding: 12px; text-align: left; font-size: 13px; font-weight: bold;">${f.empresa}</td>
+                        <td style="padding: 12px; text-align: left; font-size: 13px;">${f.numero || 'S/N'}</td>
+                        <td style="padding: 12px; text-align: right; font-size: 13px; font-weight: bold;">$${Number(f.monto).toLocaleString('es-CL')}</td>
+                    </tr>
+                `;
+            });
+
+            contenedorPdf.innerHTML = `
+                <div style="margin-bottom: 25px; border-bottom: 3px solid #1e293b; padding-bottom: 15px;">
+                    <h1 style="font-size: 26px; color: #1e293b; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Reporte de Rendiciones</h1>
+                    <p style="font-size: 14px; color: #475569; margin: 6px 0 0 0; font-weight: bold;">Estado: Facturas Rendidas y no Liquidadas</p>
+                    <p style="font-size: 11px; color: #94a3b8; margin: 4px 0 0 0;">Fecha de emisión: ${new Date().toLocaleDateString('es-CL')}</p>
+                </div>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                    <thead>
+                        <tr style="background-color: #1e293b; color: white;">
+                            <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase;">Item</th>
+                            <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase;">Empresa</th>
+                            <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase;">N° Factura</th>
+                            <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase;">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filas}
+                    </tbody>
+                </table>
+                <div style="margin-top: 35px; border-top: 2px solid #1e293b; padding-top: 15px; text-align: right; font-size: 18px; font-weight: bold; color: #1e293b;">
+                    Total Pendiente Liquidación: $${total.toLocaleString('es-CL')}
+                </div>
+            `;
+
+            const config = {
+                margin:       15,
+                filename:     `Rendiciones_Pendientes_${new Date().toISOString().slice(0,10)}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(config).from(contenedorPdf).save();
+        }
+
+        document.getElementById('btn-theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+    </script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Facturas</title>
+    <meta name="theme-color" content="#1e293b">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body class="bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 font-sans antialiased pb-24 transition-colors duration-200">
+
+    <script>
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyOWjVhRSvJODa_IsdUijTvBAKvedgEWjbzS8yNPCRp6ymO-Jq1o0uQXRFPhwu3j9Attg/exec";
+        let facturasGlobales = [];
+    </script>
+
+    <div class="max-w-md mx-auto p-4">
+        <header class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Mis Rendiciones</h1>
+                <span id="contador-pendientes" class="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs font-semibold px-2.5 py-0.5 rounded-full">0 Pendientes</span>
+            </div>
+            <button id="btn-theme" class="p-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm text-gray-600 dark:text-slate-300">
+                Modo Oscuro
+            </button>
+        </header>
+
+        <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
+            <h2 class="text-lg font-semibold mb-3">1. Cargar Escaneo</h2>
+            <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer bg-gray-50 dark:bg-slate-900">
+                <p class="text-sm text-gray-500">Tomar Foto / Subir Factura</p>
+                <input id="input-factura" type="file" accept="image/*" class="hidden" />
+            </label>
+            <div id="ocr-status" class="hidden text-sm text-blue-600 font-medium mt-3 text-center animate-pulse">
+                Analizando con Gemini...
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
+            <h2 class="text-lg font-semibold mb-3">2. Datos Detectados</h2>
+            <div class="space-y-3">
+                <input id="form-empresa" type="text" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="Empresa">
+                <div class="grid grid-cols-2 gap-3">
+                    <input id="form-numero" type="text" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="N° Factura">
+                    <input id="form-monto" type="number" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="Monto">
+                </div>
+                <button id="btn-guardar" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-lg font-bold cursor-pointer transition-colors">Guardar Registro</button>
+            </div>
+        </div>
+
+        <div id="panel-reportes" class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6 hidden grid grid-cols-3 gap-2">
+            <button onclick="enviarWhatsApp()" class="bg-emerald-600 hover:bg-emerald-700 text-white p-2.5 rounded-xl text-[11px] font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors">
+                <span>WhatsApp</span>
+            </button>
+            <button onclick="copiarReporteTexto()" class="bg-slate-600 hover:bg-slate-700 text-white p-2.5 rounded-xl text-[11px] font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors">
+                <span>Copiar Texto</span>
+            </button>
+            <button onclick="descargarPDF()" class="bg-red-600 hover:bg-red-700 text-white p-2.5 rounded-xl text-[11px] font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors">
+                <span>Bajar PDF</span>
+            </button>
+        </div>
+
+        <div id="lista-facturas" class="space-y-3"></div>
+    </div>
+
+    <script>
+        const inputFactura = document.getElementById('input-factura');
+        const ocrStatus = document.getElementById('ocr-status');
+        const formEmpresa = document.getElementById('form-empresa');
+        const formNumero = document.getElementById('form-numero');
+        const formMonto = document.getElementById('form-monto');
+        const btnGuardar = document.getElementById('btn-guardar');
+        const listaFacturas = document.getElementById('lista-facturas');
+        const contadorPendientes = document.getElementById('contador-pendientes');
+        const panelReportes = document.getElementById('panel-reportes');
+
+        document.addEventListener('DOMContentLoaded', cargarFacturasDesdeSheet);
+
+        inputFactura.addEventListener('change', async function(e) {
+            const archivo = e.target.files[0];
+            if (!archivo) return;
+            ocrStatus.classList.remove('hidden');
+            
+            const lector = new FileReader();
+            lector.onload = async function(evento) {
+                const img = new Image();
+                img.onload = async function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 1600; canvas.height = (img.height * 1600) / img.width;
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    const base64Limpio = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+
+                    try {
+                        const respuesta = await fetch(WEB_APP_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({ action: "procesarImagen", base64Image: base64Limpio })
+                        });
+                        const texto = await respuesta.text();
+                        const datosIA = JSON.parse(texto);
+                        
+                        if (datosIA.error) throw new Error(datosIA.detalle);
+                        formEmpresa.value = datosIA.empresa || "";
+                        formNumero.value = datosIA.numero || "";
+                        formMonto.value = datosIA.monto || "";
+                    } catch (error) {
+                        alert("Error IA: " + error.message);
+                    } finally {
+                        ocrStatus.classList.add('hidden');
+                    }
+                };
+                img.src = evento.target.result;
+            };
+            lector.readAsDataURL(archivo);
+        });
+
+        btnGuardar.addEventListener('click', async function() {
+            const empresa = formEmpresa.value.trim();
+            const numero = formNumero.value.trim();
+            const monto = formMonto.value.trim();
+
+            if (!empresa || !monto) {
+                alert("La empresa y el monto son obligatorios.");
+                return;
+            }
+
+            btnGuardar.disabled = true;
+            btnGuardar.innerText = "Guardando...";
+
+            try {
+                const respuesta = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: "add", empresa, numero, monto })
+                });
+                const res = await respuesta.json();
+                if (res.status === "ok") {
+                    formEmpresa.value = "";
+                    formNumero.value = "";
+                    formMonto.value = "";
+                    await cargarFacturasDesdeSheet();
+                } else {
+                    alert("Error al guardar en la planilla.");
+                }
+            } catch (error) {
+                alert("Error de red: " + error.message);
+            } finally {
+                btnGuardar.disabled = false;
+                btnGuardar.innerText = "Guardar Registro";
+            }
+        });
+
+        async function cargarFacturasDesdeSheet() {
+            try {
+                const response = await fetch(WEB_APP_URL);
+                const datos = await response.json();
+                facturasGlobales = datos;
+                
+                listaFacturas.innerHTML = "";
+                let pendientes = 0;
+
+                datos.forEach(f => {
+                    if (f.estado === "Pendiente") pendientes++;
+                    
+                    let infoFecha = "Fecha no disponible";
+                    if (f.fecha) {
+                        const fObj = new Date(f.fecha);
+                        if (!isNaN(fObj.getTime())) {
+                            const opciones = { day: '2-digit', month: '2-digit', year: 'numeric' };
+                            const fechaString = fObj.toLocaleDateString('es-CL', opciones);
+                            
+                            if (f.estado === "Pendiente") {
+                                const hoy = new Date();
+                                const diferenciaSg = hoy.getTime() - fObj.getTime();
+                                const dias = Math.floor(diferenciaSg / (1000 * 60 * 60 * 24));
+                                infoFecha = `${fechaString} (${dias === 0 ? 'Hoy' : 'Hace ' + dias + ' días'})`;
+                            } else {
+                                infoFecha = `${fechaString}`;
+                            }
+                        }
+                    }
+
+                    listaFacturas.innerHTML += `
+                        <div class="p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 flex justify-between items-center shadow-sm">
+                            <div>
+                                <p class="font-bold text-gray-900 dark:text-white">${f.empresa}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">N° ${f.numero || 'S/N'} • $${Number(f.monto).toLocaleString('es-CL')}</p>
+                                <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 font-mono">Rendida: ${infoFecha}</p>
+                                <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded ${f.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400'}">${f.estado}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                ${f.estado === "Pendiente" ? `<button onclick="marcarComoPagada('${f.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer">PAGADA</button>` : ''}
+                                <button onclick="eliminarRegistro('${f.id}')" class="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer" title="Eliminar">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>`;
+                });
+
+                contadorPendientes.innerText = pendientes + " Pendientes";
+                
+                if (pendientes > 0) {
+                    panelReportes.classList.remove('hidden');
+                } else {
+                    panelReportes.classList.add('hidden');
+                }
+
+            } catch (e) { listaFacturas.innerText = "Error cargando datos."; }
+        }
+
+        async function marcarComoPagada(id) {
+            await fetch(WEB_APP_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: "updateStatus", id: id, status: "Pagada" })
+            });
+            cargarFacturasDesdeSheet();
+        }
+
+        async function eliminarRegistro(id) {
+            if (!confirm("¿Seguro que deseas eliminar este registro?")) return;
+            try {
+                await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: "delete", id: id })
+                });
+                cargarFacturasDesdeSheet();
+            } catch (e) {
+                alert("Error al eliminar.");
+            }
+        }
+
+        // Estructuración limpia del texto para bloques legibles en WhatsApp
+        function construirTextoReporte() {
+            const pendientes = facturasGlobales.filter(f => f.estado === "Pendiente");
+            if (pendientes.length === 0) return "";
+
+            let texto = "📋 *Facturas Rendidas y no liquidadas*\n";
+            texto += "===============================\n\n";
+            
+            let total = 0;
+            pendientes.forEach((f, i) => {
+                total += Number(f.monto || 0);
+                texto += `*${i + 1}. ${f.empresa}*\n`;
+                texto += `🔹 *N° Factura:* ${f.numero || 'S/N'}\n`;
+                texto += `💰 *Monto:* $${Number(f.monto).toLocaleString('es-CL')}\n`;
+                texto += "-----------------------------------\n";
+            });
+            
+            texto += `\n💵 *TOTAL PENDIENTE:* $${total.toLocaleString('es-CL')}`;
+            return texto;
+        }
+
+        function enviarWhatsApp() {
+            const msg = construirTextoReporte();
+            if (!msg) return alert("No hay registros pendientes para enviar.");
+            window.location.href = `whatsapp://send?text=${encodeURIComponent(msg)}`;
+        }
+
+        async function copiarReporteTexto() {
+            const msg = construirTextoReporte();
+            if (!msg) return alert("No hay registros pendientes.");
+            try {
+                await navigator.clipboard.writeText(msg);
+                alert("Reporte copiado.");
+            } catch (err) {
+                alert("Error al copiar.");
+            }
+        }
+
+        // Generador dinámico de la tabla PDF en limpio
+        function descargarPDF() {
+            const pendientes = facturasGlobales.filter(f => f.estado === "Pendiente");
+            if (pendientes.length === 0) return alert("No hay facturas pendientes para exportar.");
+
+            const contenedorPdf = document.createElement('div');
+            contenedorPdf.style.padding = '30px';
+            contenedorPdf.style.fontFamily = 'Arial, sans-serif';
+            contenedorPdf.style.color = '#1e293b';
+            
+            let total = 0;
+            let filas = '';
+            pendientes.forEach((f, i) => {
+                total += Number(f.monto || 0);
+                filas += `
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 12px; text-align: left; font-size: 13px;">${i + 1}</td>
+                        <td style="padding: 12px; text-align: left; font-size: 13px; font-weight: bold;">${f.empresa}</td>
+                        <td style="padding: 12px; text-align: left; font-size: 13px;">${f.numero || 'S/N'}</td>
+                        <td style="padding: 12px; text-align: right; font-size: 13px; font-weight: bold;">$${Number(f.monto).toLocaleString('es-CL')}</td>
+                    </tr>
+                `;
+            });
+
+            contenedorPdf.innerHTML = `
+                <div style="margin-bottom: 25px; border-bottom: 3px solid #1e293b; padding-bottom: 15px;">
+                    <h1 style="font-size: 26px; color: #1e293b; margin: 0; text-transform: uppercase; letter-spacing: 1px;">Reporte de Rendiciones</h1>
+                    <p style="font-size: 14px; color: #475569; margin: 6px 0 0 0; font-weight: bold;">Estado: Facturas Rendidas y no Liquidadas</p>
+                    <p style="font-size: 11px; color: #94a3b8; margin: 4px 0 0 0;">Fecha de emisión: ${new Date().toLocaleDateString('es-CL')}</p>
+                </div>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                    <thead>
+                        <tr style="background-color: #1e293b; color: white;">
+                            <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase;">Item</th>
+                            <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase;">Empresa</th>
+                            <th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase;">N° Factura</th>
+                            <th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase;">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filas}
+                    </tbody>
+                </table>
+                <div style="margin-top: 35px; border-top: 2px solid #1e293b; padding-top: 15px; text-align: right; font-size: 18px; font-weight: bold; color: #1e293b;">
+                    Total Pendiente Liquidación: $${total.toLocaleString('es-CL')}
+                </div>
+            `;
+
+            const config = {
+                margin:       15,
+                filename:     `Rendiciones_Pendientes_${new Date().toISOString().slice(0,10)}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(config).from(contenedorPdf).save();
         }
 
         document.getElementById('btn-theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
