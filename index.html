@@ -1,189 +1,385 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Control de Facturas</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Mis Rendiciones</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+<style>
+body{
+font-family: Arial, sans-serif;
+}
+</style>
+
 </head>
 
-<body class="bg-gray-100 text-gray-800 p-4">
+<body class="bg-slate-100 min-h-screen text-slate-800">
 
-<div class="max-w-md mx-auto">
+<div class="max-w-md mx-auto p-4">
 
-<h1 class="text-2xl font-bold mb-4">Facturas OCR</h1>
+<!-- HEADER -->
+<div class="mb-6">
 
-<input type="file" id="file" accept="image/*"
-class="mb-4"/>
+<h1 class="text-3xl font-bold text-slate-900">
+Mis Rendiciones
+</h1>
 
-<div id="status" class="text-blue-600 mb-4"></div>
+<p class="text-slate-500 mt-1">
+OCR automático con Gemini
+</p>
 
-<input id="empresa" placeholder="Empresa"
-class="w-full p-2 border mb-2"/>
+</div>
 
-<input id="numero" placeholder="Número"
-class="w-full p-2 border mb-2"/>
+<!-- CARD OCR -->
+<div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
 
-<input id="monto" placeholder="Monto"
-class="w-full p-2 border mb-2"/>
+<h2 class="text-lg font-semibold mb-4">
+Subir Factura
+</h2>
 
-<button id="guardar"
-class="bg-blue-600 text-white px-4 py-2 rounded">
-Guardar
+<label class="block">
+
+<div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer hover:bg-slate-50 transition">
+
+<p class="font-medium">
+Seleccionar imagen
+</p>
+
+<p class="text-sm text-slate-500 mt-1">
+Factura, boleta o peaje
+</p>
+
+</div>
+
+<input
+type="file"
+id="file"
+accept="image/*"
+class="hidden"
+/>
+
+</label>
+
+<div
+id="status"
+class="mt-4 text-sm font-medium text-blue-600"
+></div>
+
+<!-- FORM -->
+<div class="mt-5 space-y-3">
+
+<div>
+
+<label class="text-sm font-medium">
+Empresa
+</label>
+
+<input
+id="empresa"
+type="text"
+placeholder="Empresa"
+class="w-full mt-1 p-3 rounded-xl border border-slate-300 bg-slate-50"
+/>
+
+</div>
+
+<div>
+
+<label class="text-sm font-medium">
+Número
+</label>
+
+<input
+id="numero"
+type="text"
+placeholder="Número factura"
+class="w-full mt-1 p-3 rounded-xl border border-slate-300 bg-slate-50"
+/>
+
+</div>
+
+<div>
+
+<label class="text-sm font-medium">
+Monto
+</label>
+
+<input
+id="monto"
+type="number"
+placeholder="Monto"
+class="w-full mt-1 p-3 rounded-xl border border-slate-300 bg-slate-50"
+/>
+
+</div>
+
+<button
+id="guardar"
+class="w-full bg-blue-600 hover:bg-blue-700 transition text-white font-semibold py-3 rounded-xl mt-2"
+>
+Guardar Registro
 </button>
+
+</div>
+
+</div>
 
 </div>
 
 <script>
 
-// 🔴 CAMBIA SOLO ESTA URL POR TU DEPLOY ACTUAL
+// ======================================
+// URL APPS SCRIPT
+// ======================================
 const WEB_APP_URL =
 "https://script.google.com/macros/s/AKfycbwbrG-NZHI73Qy0xp6n68cuU1-DuKNsP0MIuhY6FmtLAPh-3h6Co1VlTG2_rC0kWcObeQ/exec";
 
-const fileInput = document.getElementById("file");
-const statusDiv = document.getElementById("status");
+// ======================================
+// ELEMENTOS
+// ======================================
+const fileInput =
+document.getElementById("file");
 
-const empresa = document.getElementById("empresa");
-const numero = document.getElementById("numero");
-const monto = document.getElementById("monto");
+const statusDiv =
+document.getElementById("status");
 
-// ============================
-// SUBIR IMAGEN
-// ============================
-fileInput.addEventListener("change", (e) => {
+const empresa =
+document.getElementById("empresa");
 
-const file = e.target.files[0];
+const numero =
+document.getElementById("numero");
+
+const monto =
+document.getElementById("monto");
+
+// ======================================
+// OCR
+// ======================================
+fileInput.addEventListener(
+"change",
+async (e) => {
+
+const file =
+e.target.files[0];
+
 if (!file) return;
 
-statusDiv.innerText = "Procesando imagen...";
+statusDiv.innerText =
+"Procesando factura...";
 
-const reader = new FileReader();
+const reader =
+new FileReader();
 
-reader.onload = async function(evt) {
+reader.onload =
+async function(evt){
 
-const img = new Image();
+const img =
+new Image();
 
-img.onload = async function() {
+img.onload =
+async function(){
 
 try {
 
-// Canvas resize
-const canvas = document.createElement("canvas");
+const canvas =
+document.createElement("canvas");
 
 let w = img.width;
 let h = img.height;
 
-const max = 800;
+const max = 1200;
 
 if (w > h && w > max) {
+
 h *= max / w;
 w = max;
-} else if (h > max) {
+
+}
+else if (h > max) {
+
 w *= max / h;
 h = max;
+
 }
 
 canvas.width = w;
 canvas.height = h;
 
-const ctx = canvas.getContext("2d");
-ctx.drawImage(img, 0, 0, w, h);
+const ctx =
+canvas.getContext("2d");
 
-// calidad media
-const base64 = canvas.toDataURL("image/jpeg", 0.5).split(",")[1];
+ctx.drawImage(
+img,
+0,
+0,
+w,
+h
+);
 
-console.log("BASE64:", base64.length);
+// mejor calidad OCR
+const base64 =
+canvas
+.toDataURL(
+"image/jpeg",
+0.85
+)
+.split(",")[1];
 
-// ============================
-// FETCH A APPS SCRIPT
-// ============================
-const res = await fetch(WEB_APP_URL, {
+console.log(
+"BASE64 SIZE:",
+base64.length
+);
+
+const response =
+await fetch(
+WEB_APP_URL,
+{
 method: "POST",
+
+headers:{
+"Content-Type":
+"text/plain;charset=utf-8"
+},
+
 body: JSON.stringify({
 action: "procesarImagen",
 base64Image: base64,
 mimeType: "image/jpeg"
-}),
-headers: {
-"Content-Type": "text/plain;charset=utf-8"
+})
 }
-});
+);
 
-// IMPORTANTE: leer como text primero
-const text = await res.text();
+const text =
+await response.text();
 
-console.log("RAW RESPONSE:", text);
+console.log(
+"RAW:",
+text
+);
 
-// ============================
-// PARSE SEGURO
-// ============================
-let data;
+let data = null;
 
 try {
-data = JSON.parse(text);
-} catch (e) {
-console.error("JSON inválido:", text);
-statusDiv.innerText = "Error: respuesta inválida del servidor";
+
+data =
+JSON.parse(text);
+
+}
+catch(err){
+
+statusDiv.innerText =
+"Respuesta inválida";
+
+console.error(text);
+
 return;
+
 }
 
-// ============================
+// ======================================
 // ERROR BACKEND
-// ============================
+// ======================================
 if (data.error) {
-console.error("ERROR BACKEND:", data);
-statusDiv.innerText = data.detalle || "Error en servidor";
+
+statusDiv.innerText =
+data.detalle ||
+"Error OCR";
+
+console.error(data);
+
 return;
+
 }
 
-// ============================
-// RELLENAR FORM
-// ============================
-empresa.value = data.empresa || "";
-numero.value = data.numero || "";
-monto.value = data.monto || "";
+// ======================================
+// RELLENAR
+// ======================================
+empresa.value =
+data.empresa || "";
 
-statusDiv.innerText = "Listo ✔";
+numero.value =
+data.numero || "";
 
-} catch (err) {
+monto.value =
+data.monto || "";
+
+statusDiv.innerText =
+"OCR completado ✔";
+
+}
+catch(err){
+
 console.error(err);
-statusDiv.innerText = "Error procesando imagen";
+
+statusDiv.innerText =
+"Error procesando imagen";
+
 }
 
 };
 
-img.src = evt.target.result;
+img.src =
+evt.target.result;
 
 };
 
 reader.readAsDataURL(file);
 
-});
+}
+);
 
-// ============================
+// ======================================
 // GUARDAR
-// ============================
-document.getElementById("guardar").onclick = async () => {
+// ======================================
+document.getElementById(
+"guardar"
+).onclick =
+async () => {
 
-await fetch(WEB_APP_URL, {
+try {
+
+await fetch(
+WEB_APP_URL,
+{
 method: "POST",
+
+headers:{
+"Content-Type":
+"text/plain;charset=utf-8"
+},
+
 body: JSON.stringify({
 action: "add",
 empresa: empresa.value,
 numero: numero.value,
 monto: monto.value
-}),
-headers: {
-"Content-Type": "text/plain;charset=utf-8"
+})
 }
-});
+);
 
-alert("Guardado");
+alert(
+"Guardado correctamente"
+);
 
 empresa.value = "";
 numero.value = "";
 monto.value = "";
+
+statusDiv.innerText = "";
+
+}
+catch(err){
+
+console.error(err);
+
+alert(
+"Error guardando"
+);
+
+}
 
 };
 
