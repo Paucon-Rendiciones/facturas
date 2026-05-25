@@ -43,7 +43,7 @@
                     <input id="form-numero" type="text" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="N° Factura">
                     <input id="form-monto" type="number" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="Monto">
                 </div>
-                <button id="btn-guardar" class="w-full bg-blue-600 text-white p-2.5 rounded-lg font-bold">Guardar Registro</button>
+                <button id="btn-guardar" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-lg font-bold cursor-pointer transition-colors">Guardar Registro</button>
             </div>
         </div>
 
@@ -72,10 +72,8 @@
                 const img = new Image();
                 img.onload = async function() {
                     const canvas = document.createElement('canvas');
-                    // OPTIMIZADO: 1600px de ancho para no perder nitidez en textos chicos
                     canvas.width = 1600; canvas.height = (img.height * 1600) / img.width;
                     canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                    // OPTIMIZADO: Calidad 0.85 para evitar borrosidad
                     const base64Limpio = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
 
                     try {
@@ -102,6 +100,43 @@
             lector.readAsDataURL(archivo);
         });
 
+        // CORRECCIÓN: Listener para Guardar el Registro manual o detectado
+        btnGuardar.addEventListener('click', async function() {
+            const empresa = formEmpresa.value.trim();
+            const numero = formNumero.value.trim();
+            const monto = formMonto.value.trim();
+
+            if (!empresa || !monto) {
+                alert("La empresa y el monto son obligatorios.");
+                return;
+            }
+
+            btnGuardar.disabled = true;
+            btnGuardar.innerText = "Guardando...";
+
+            try {
+                const respuesta = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: "add", empresa, numero, monto })
+                });
+                const res = await respuesta.json();
+                if (res.status === "ok") {
+                    formEmpresa.value = "";
+                    formNumero.value = "";
+                    formMonto.value = "";
+                    await cargarFacturasDesdeSheet();
+                } else {
+                    alert("Error al guardar en la planilla.");
+                }
+            } catch (error) {
+                alert("Error de red: " + error.message);
+            } finally {
+                btnGuardar.disabled = false;
+                btnGuardar.innerText = "Guardar Registro";
+            }
+        });
+
         async function cargarFacturasDesdeSheet() {
             try {
                 const response = await fetch(WEB_APP_URL);
@@ -110,10 +145,23 @@
                 let pendientes = 0;
                 datos.forEach(f => {
                     if (f.estado === "Pendiente") pendientes++;
+                    
+                    // CORRECCIÓN: Renderizar interfaz con botón Pagar y botón Eliminar (Basurero SVG)
                     listaFacturas.innerHTML += `
-                        <div class="p-4 bg-white dark:bg-slate-800 rounded-xl border flex justify-between items-center">
-                            <div><p class="font-bold">${f.empresa}</p><p class="text-sm">$${f.monto}</p></div>
-                            <button onclick="marcarComoPagada('${f.id}')" class="bg-blue-600 text-white px-3 py-1 rounded-lg text-xs">Pagar</button>
+                        <div class="p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 flex justify-between items-center shadow-sm">
+                            <div>
+                                <p class="font-bold text-gray-900 dark:text-white">${f.empresa}</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">N° ${f.numero || 'S/N'} • $${f.monto}</p>
+                                <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded ${f.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400'}">${f.estado}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                ${f.estado === "Pendiente" ? `<button onclick="marcarComoPagada('${f.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer">Pagar</button>` : ''}
+                                <button onclick="eliminarRegistro('${f.id}')" class="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer" title="Eliminar">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>`;
                 });
                 contadorPendientes.innerText = pendientes + " Pendientes";
@@ -123,9 +171,25 @@
         async function marcarComoPagada(id) {
             await fetch(WEB_APP_URL, {
                 method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: "updateStatus", id: id, status: "Pagado" })
             });
             cargarFacturasDesdeSheet();
+        }
+
+        // CORRECCIÓN: Función para eliminar de la planilla desde la UI
+        async function eliminarRegistro(id) {
+            if (!confirm("¿Seguro que deseas eliminar este registro?")) return;
+            try {
+                await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: "delete", id: id })
+                });
+                cargarFacturasDesdeSheet();
+            } catch (e) {
+                alert("Error al eliminar.");
+            }
         }
 
         document.getElementById('btn-theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
