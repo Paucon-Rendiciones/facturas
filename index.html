@@ -7,9 +7,10 @@
     <meta name="theme-color" content="#1e293b">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
-<body class="bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 font-sans antialiased pb-24">
+<body class="bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 font-sans antialiased pb-24 transition-colors duration-200">
 
     <script>
+        // URL de tu Apps Script
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwbrG-NZHI73Qy0xp6n68cuU1-DuKNsP0MIuhY6FmtLAPh-3h6Co1VlTG2_rC0kWcObeQ/exec";
     </script>
 
@@ -19,22 +20,29 @@
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Mis Rendiciones</h1>
                 <span id="contador-pendientes" class="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs font-semibold px-2.5 py-0.5 rounded-full">0 Pendientes</span>
             </div>
-            <button id="btn-theme" class="p-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm">🌙</button>
+            <button id="btn-theme" class="p-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm text-gray-600 dark:text-slate-300">
+                Modo Oscuro
+            </button>
         </header>
 
         <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
-            <h2 class="font-semibold mb-3">1. Cargar Escaneo</h2>
-            <input id="input-factura" type="file" accept="image/*" class="w-full p-2 border border-gray-300 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-900">
-            <div id="ocr-status" class="hidden text-blue-600 font-bold mt-3 text-center animate-pulse">Analizando con IA...</div>
+            <h2 class="text-lg font-semibold mb-3">1. Cargar Escaneo</h2>
+            <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer bg-gray-50 dark:bg-slate-900">
+                <p class="text-sm text-gray-500">Tomar Foto / Subir Factura</p>
+                <input id="input-factura" type="file" accept="image/*" class="hidden" />
+            </label>
+            <div id="ocr-status" class="hidden text-sm text-blue-600 font-medium mt-3 text-center animate-pulse">
+                Analizando con Gemini...
+            </div>
         </div>
 
         <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
-            <h2 class="font-semibold mb-3">2. Datos Detectados</h2>
+            <h2 class="text-lg font-semibold mb-3">2. Datos Detectados</h2>
             <div class="space-y-3">
-                <input id="form-empresa" class="w-full p-2 border rounded-lg bg-gray-50 dark:bg-slate-900" placeholder="Empresa">
+                <input id="form-empresa" type="text" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="Empresa">
                 <div class="grid grid-cols-2 gap-3">
-                    <input id="form-numero" class="w-full p-2 border rounded-lg bg-gray-50 dark:bg-slate-900" placeholder="N° Factura">
-                    <input id="form-monto" type="number" class="w-full p-2 border rounded-lg bg-gray-50 dark:bg-slate-900" placeholder="Monto">
+                    <input id="form-numero" type="text" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="N° Factura">
+                    <input id="form-monto" type="number" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="Monto">
                 </div>
                 <button id="btn-guardar" class="w-full bg-blue-600 text-white p-2.5 rounded-lg font-bold">Guardar Registro</button>
             </div>
@@ -45,53 +53,78 @@
 
     <script>
         const inputFactura = document.getElementById('input-factura');
+        const ocrStatus = document.getElementById('ocr-status');
+        const formEmpresa = document.getElementById('form-empresa');
+        const formNumero = document.getElementById('form-numero');
+        const formMonto = document.getElementById('form-monto');
+        const btnGuardar = document.getElementById('btn-guardar');
         const listaFacturas = document.getElementById('lista-facturas');
+        const contadorPendientes = document.getElementById('contador-pendientes');
 
-        document.addEventListener('DOMContentLoaded', cargar);
+        document.addEventListener('DOMContentLoaded', cargarFacturasDesdeSheet);
 
-        inputFactura.addEventListener('change', async (e) => {
+        inputFactura.addEventListener('change', async function(e) {
             const archivo = e.target.files[0];
-            if(!archivo) return;
-            document.getElementById('ocr-status').classList.remove('hidden');
+            if (!archivo) return;
+            ocrStatus.classList.remove('hidden');
             
-            const reader = new FileReader();
-            reader.onload = async (ev) => {
+            const lector = new FileReader();
+            lector.onload = async function(evento) {
                 const img = new Image();
-                img.onload = async () => {
+                img.onload = async function() {
                     const canvas = document.createElement('canvas');
                     canvas.width = 800; canvas.height = (img.height * 800) / img.width;
                     canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-                    const base64 = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
-                    
+                    const base64Limpio = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
+
                     try {
-                        const resp = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({action: "procesarImagen", base64Image: base64}) });
-                        const data = await resp.json();
-                        document.getElementById('form-empresa').value = data.empresa || "";
-                        document.getElementById('form-numero').value = data.numero || "";
-                        document.getElementById('form-monto').value = data.monto || "";
-                    } catch(e) { alert("Error al conectar con la IA"); }
-                    document.getElementById('ocr-status').classList.add('hidden');
+                        const respuesta = await fetch(WEB_APP_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({ action: "procesarImagen", base64Image: base64Limpio })
+                        });
+                        const texto = await respuesta.text();
+                        const datosIA = JSON.parse(texto);
+                        
+                        if (datosIA.error) throw new Error(datosIA.detalle);
+                        formEmpresa.value = datosIA.empresa || "";
+                        formNumero.value = datosIA.numero || "";
+                        formMonto.value = datosIA.monto || "";
+                    } catch (error) {
+                        alert("Error IA: " + error.message);
+                    } finally {
+                        ocrStatus.classList.add('hidden');
+                    }
                 };
-                img.src = ev.target.result;
+                img.src = evento.target.result;
             };
-            reader.readAsDataURL(archivo);
+            lector.readAsDataURL(archivo);
         });
 
-        async function cargar() {
+        async function cargarFacturasDesdeSheet() {
             try {
-                const r = await fetch(WEB_APP_URL);
-                const datos = await r.json();
-                listaFacturas.innerHTML = Array.isArray(datos) ? datos.map(f => `
-                    <div class="p-4 bg-white dark:bg-slate-800 border rounded-xl flex justify-between items-center">
-                        <div><p class="font-bold">${f.empresa || 'Sin nombre'}</p><p class="text-sm">$${f.monto || 0}</p></div>
-                        <button onclick="borrar('${f.id}')" class="text-red-500 font-bold px-2">X</button>
-                    </div>`).join('') : "";
-            } catch(e) { listaFacturas.innerHTML = "Error al cargar datos"; }
+                const response = await fetch(WEB_APP_URL);
+                const datos = await response.json();
+                listaFacturas.innerHTML = "";
+                let pendientes = 0;
+                datos.forEach(f => {
+                    if (f.estado === "Pendiente") pendientes++;
+                    listaFacturas.innerHTML += `
+                        <div class="p-4 bg-white dark:bg-slate-800 rounded-xl border flex justify-between items-center">
+                            <div><p class="font-bold">${f.empresa}</p><p class="text-sm">$${f.monto}</p></div>
+                            <button onclick="marcarComoPagada('${f.id}')" class="bg-blue-600 text-white px-3 py-1 rounded-lg text-xs">Pagar</button>
+                        </div>`;
+                });
+                contadorPendientes.innerText = pendientes + " Pendientes";
+            } catch (e) { listaFacturas.innerText = "Error cargando datos."; }
         }
 
-        async function borrar(id) {
-            await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify({action: "delete", id: id}) });
-            cargar();
+        async function marcarComoPagada(id) {
+            await fetch(WEB_APP_URL, {
+                method: 'POST',
+                body: JSON.stringify({ action: "updateStatus", id: id, status: "Pagado" })
+            });
+            cargarFacturasDesdeSheet();
         }
 
         document.getElementById('btn-theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
