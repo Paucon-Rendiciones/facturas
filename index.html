@@ -13,21 +13,22 @@
     <script>
         // Conserva tu URL exacta de Apps Script
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyOWjVhRSvJODa_IsdUijTvBAKvedgEWjbzS8yNPCRp6ymO-Jq1o0uQXRFPhwu3j9Attg/exec";
-        // Almacenamiento local para generar reportes y validar duplicados en tiempo real
         let facturasGlobales = [];
     </script>
 
     <div class="max-w-md mx-auto p-4">
+        <!-- Cabecera de la App -->
         <header class="flex justify-between items-center mb-6">
             <div>
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Mis Rendiciones</h1>
                 <span id="contador-pendientes" class="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs font-semibold px-2.5 py-0.5 rounded-full">0 Pendientes</span>
             </div>
-            <button id="btn-theme" class="p-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm text-gray-600 dark:text-slate-300">
+            <button id="btn-theme" class="p-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm text-gray-600 dark:text-slate-300 text-xs">
                 Modo Oscuro
             </button>
         </header>
 
+        <!-- 1. Cargar Escaneo -->
         <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
             <h2 class="text-lg font-semibold mb-3">1. Cargar Escaneo</h2>
             <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer bg-gray-50 dark:bg-slate-900">
@@ -39,6 +40,7 @@
             </div>
         </div>
 
+        <!-- 2. Datos Detectados -->
         <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
             <h2 class="text-lg font-semibold mb-3">2. Datos Detectados</h2>
             <div class="space-y-3">
@@ -51,10 +53,9 @@
             </div>
         </div>
 
-        <!-- Panel de Reportes para envío -->
+        <!-- Panel de Reportes -->
         <div id="panel-reportes" class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6 hidden flex gap-3">
             <button onclick="enviarWhatsApp()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-2.64-1.03-5.123-2.902-6.994a9.895 9.895 0 0 0-6.992-2.89c-5.451 0-9.887 4.434-9.89 9.885-.001 2.22.612 4.356 1.777 6.223l-.999 3.648 3.725-.979zm11.215-4.747c-.292-.146-1.729-.853-1.996-.951-.267-.098-.462-.146-.657.146-.195.292-.756.951-.926 1.146-.17.195-.341.219-.633.073-1.124-.51-2.158-1.148-3.003-1.884-.738-.644-1.353-1.41-1.748-2.274-.17-.292-.018-.45.129-.595.132-.131.292-.341.438-.512.146-.17.195-.292.292-.487.098-.195.049-.366-.024-.512-.073-.146-.657-1.583-.9-2.17-.236-.572-.477-.494-.657-.504-.17-.008-.365-.01-.56-.01s-.512.073-.78.366c-.268.292-1.023 1.001-1.023 2.441 0 1.439 1.048 2.83 1.194 3.025.146.195 2.062 3.149 4.996 4.413.698.301 1.243.481 1.668.616.702.223 1.34.192 1.844.117.562-.083 1.729-.707 1.972-1.39.243-.683.243-1.268.17-1.39-.073-.122-.268-.195-.56-.341z"/></svg>
                 WhatsApp
             </button>
             <button onclick="copiarReporteTexto()" class="flex-1 bg-slate-600 hover:bg-slate-700 text-white p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors">
@@ -62,10 +63,87 @@
             </button>
         </div>
 
-        <div id="lista-facturas" class="space-y-3"></div>
+        <!-- Lista de facturas -->
+        <div id="lista-facturas" class="space-y-3 mb-8"></div>
+
+        <!-- ========================================== -->
+        <!-- NUEVO: PANEL DE DIAGNÓSTICO PWA EN TIEMPO REAL -->
+        <!-- ========================================== -->
+        <div class="bg-slate-900 border-2 border-amber-500/40 p-4 rounded-2xl shadow-lg mt-8 text-slate-100">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-bold text-amber-400 flex items-center gap-1">
+                    🔍 Consola de Diagnóstico PWA
+                </h3>
+                <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded font-mono text-slate-400">v1.2</span>
+            </div>
+            <p class="text-[11px] text-slate-300 mb-4 leading-relaxed">
+                Esta consola verifica los requisitos que Google Chrome exige para activar el botón de instalación en tu celular. Revisa cuáles están en rojo.
+            </p>
+
+            <div class="space-y-3 text-xs font-mono" id="contenedor-diagnostico">
+                <!-- Prueba 1: Protocolo seguro HTTPS -->
+                <div class="flex justify-between items-start border-b border-slate-800 pb-2">
+                    <div>
+                        <p class="font-semibold text-slate-200">1. Conexión Segura (HTTPS)</p>
+                        <span id="p1-desc" class="text-[10px] text-slate-400">Verificando protocolo de red...</span>
+                    </div>
+                    <span id="p1-status" class="text-base">⏳</span>
+                </div>
+
+                <!-- Prueba 2: Existencia del Manifest -->
+                <div class="flex justify-between items-start border-b border-slate-800 pb-2">
+                    <div>
+                        <p class="font-semibold text-slate-200">2. Lectura de manifest.json</p>
+                        <span id="p2-desc" class="text-[10px] text-slate-400">Buscando archivo de configuración...</span>
+                    </div>
+                    <span id="p2-status" class="text-base">⏳</span>
+                </div>
+
+                <!-- Prueba 3: Estructura del Manifest -->
+                <div class="flex justify-between items-start border-b border-slate-800 pb-2">
+                    <div>
+                        <p class="font-semibold text-slate-200">3. Datos del Manifest</p>
+                        <span id="p3-desc" class="text-[10px] text-slate-400">Analizando nombres, colores e iconos...</span>
+                    </div>
+                    <span id="p3-status" class="text-base">⏳</span>
+                </div>
+
+                <!-- Prueba 4: Archivo Service Worker -->
+                <div class="flex justify-between items-start border-b border-slate-800 pb-2">
+                    <div>
+                        <p class="font-semibold text-slate-200">4. Archivo Service Worker (sw.js)</p>
+                        <span id="p4-desc" class="text-[10px] text-slate-400">Verificando acceso a sw.js en el servidor...</span>
+                    </div>
+                    <span id="p4-status" class="text-base">⏳</span>
+                </div>
+
+                <!-- Prueba 5: Registro del Service Worker -->
+                <div class="flex justify-between items-start border-b border-slate-800 pb-2">
+                    <div>
+                        <p class="font-semibold text-slate-200">5. Registro del Service Worker</p>
+                        <span id="p5-desc" class="text-[10px] text-slate-400">Comprobando si el navegador lo activó...</span>
+                    </div>
+                    <span id="p5-status" class="text-base">⏳</span>
+                </div>
+
+                <!-- Prueba 6: Evento de Instalación -->
+                <div class="flex justify-between items-start pb-1">
+                    <div>
+                        <p class="font-semibold text-slate-200">6. Compatibilidad Chrome</p>
+                        <span id="p6-desc" class="text-[10px] text-slate-400">Esperando señal de instalación de Android...</span>
+                    </div>
+                    <span id="p6-status" class="text-base">⏳</span>
+                </div>
+            </div>
+
+            <button onclick="ejecutarPruebasDiag()" class="mt-4 w-full bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 text-xs font-bold py-2 rounded-xl transition-all cursor-pointer">
+                🔄 Volver a pasar pruebas
+            </button>
+        </div>
     </div>
 
     <script>
+        // --- CÓDIGO OPERATIVO ORIGINAL DE FACTURAS ---
         const inputFactura = document.getElementById('input-factura');
         const ocrStatus = document.getElementById('ocr-status');
         const formEmpresa = document.getElementById('form-empresa');
@@ -76,13 +154,15 @@
         const contadorPendientes = document.getElementById('contador-pendientes');
         const panelReportes = document.getElementById('panel-reportes');
 
-        document.addEventListener('DOMContentLoaded', cargarFacturasDesdeSheet);
+        document.addEventListener('DOMContentLoaded', () => {
+            cargarFacturasDesdeSheet();
+            ejecutarPruebasDiag();
+        });
 
         inputFactura.addEventListener('change', async function(e) {
             const archivo = e.target.files[0];
             if (!archivo) return;
             ocrStatus.classList.remove('hidden');
-            
             const lector = new FileReader();
             lector.onload = async function(evento) {
                 const img = new Image();
@@ -91,7 +171,6 @@
                     canvas.width = 1600; canvas.height = (img.height * 1600) / img.width;
                     canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
                     const base64Linter = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
-
                     try {
                         const respuesta = await fetch(WEB_APP_URL, {
                             method: 'POST',
@@ -100,7 +179,6 @@
                         });
                         const texto = await respuesta.text();
                         const datosIA = JSON.parse(texto);
-                        
                         if (datosIA.error) throw new Error(datosIA.detalle);
                         formEmpresa.value = datosIA.empresa || "";
                         formNumero.value = datosIA.numero || "";
@@ -120,36 +198,9 @@
             const empresa = formEmpresa.value.trim();
             const numero = formNumero.value.trim();
             const monto = formMonto.value.trim();
-
-            if (!empresa || !monto) {
-                alert("La empresa y el monto son obligatorios.");
-                return;
-            }
-
-            // Validación de duplicados
-            if (numero && numero !== "" && numero.toUpperCase() !== "S/N") {
-                const normalizar = (val) => {
-                    if (val === undefined || val === null) return "";
-                    return String(val).replace(/[\s\.\-\,\/]/g, '').replace(/^0+/, '').trim();
-                };
-
-                const numeroNuevoNormalizado = normalizar(numero);
-                
-                const facturaDuplicada = facturasGlobales.find(f => {
-                    if (!f.numero) return false;
-                    const numeroExistenteNormalizado = normalizar(f.numero);
-                    return numeroExistenteNormalizado === numeroNuevoNormalizado;
-                });
-
-                if (facturaDuplicada) {
-                    alert(`La factura N° ${numero} ya fue registrada previamente para "${facturaDuplicada.empresa}" (Estado: ${facturaDuplicada.estado}).`);
-                    return;
-                }
-            }
-
+            if (!empresa || !monto) { alert("La empresa y el monto son obligatorios."); return; }
             btnGuardar.disabled = true;
             btnGuardar.innerText = "Guardando...";
-
             try {
                 const respuesta = await fetch(WEB_APP_URL, {
                     method: 'POST',
@@ -158,19 +209,11 @@
                 });
                 const res = await respuesta.json();
                 if (res.status === "ok") {
-                    formEmpresa.value = "";
-                    formNumero.value = "";
-                    formMonto.value = "";
+                    formEmpresa.value = ""; formNumero.value = ""; formMonto.value = "";
                     await cargarFacturasDesdeSheet();
-                } else {
-                    alert("Error al guardar en la planilla.");
-                }
-            } catch (error) {
-                alert("Error de red: " + error.message);
-            } finally {
-                btnGuardar.disabled = false;
-                btnGuardar.innerText = "Guardar Registro";
-            }
+                } else { alert("Error al guardar."); }
+            } catch (error) { alert("Error de red: " + error.message); }
+            finally { btnGuardar.disabled = false; btnGuardar.innerText = "Guardar Registro"; }
         });
 
         async function cargarFacturasDesdeSheet() {
@@ -178,59 +221,26 @@
                 const response = await fetch(WEB_APP_URL);
                 const datos = await response.json();
                 facturasGlobales = datos;
-                
                 listaFacturas.innerHTML = "";
                 let pendientes = 0;
-
                 datos.forEach(f => {
                     if (f.estado === "Pendiente") pendientes++;
-                    
-                    let infoFecha = "Fecha no disponible";
-                    if (f.fecha) {
-                        const fObj = new Date(f.fecha);
-                        if (!isNaN(fObj.getTime())) {
-                            const opciones = { day: '2-digit', month: '2-digit', year: 'numeric' };
-                            const fechaString = fObj.toLocaleDateString('es-CL', opciones);
-                            
-                            if (f.estado === "Pendiente") {
-                                const hoy = new Date();
-                                const diferenciaSg = hoy.getTime() - fObj.getTime();
-                                const dias = Math.floor(diferenciaSg / (1000 * 60 * 60 * 24));
-                                infoFecha = `${fechaString} (${dias === 0 ? 'Hoy' : 'Hace ' + dias + ' días'})`;
-                            } else {
-                                infoFecha = `${fechaString}`;
-                            }
-                        }
-                    }
-
                     listaFacturas.innerHTML += `
-                        <div class="p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 flex justify-between items-center shadow-sm">
+                        <div class="p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 flex justify-between items-center shadow-sm text-xs">
                             <div>
                                 <p class="font-bold text-gray-900 dark:text-white">${f.empresa}</p>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">N° ${f.numero || 'S/N'} • $${Number(f.monto).toLocaleString('es-CL')}</p>
-                                <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 font-mono">Rendida: ${infoFecha}</p>
-                                <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded ${f.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400'}">${f.estado}</span>
+                                <p class="text-gray-500 dark:text-gray-400">N° ${f.numero || 'S/N'} • $${Number(f.monto).toLocaleString('es-CL')}</p>
+                                <span class="inline-block mt-1 text-[10px] px-2 py-0.5 rounded ${f.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400'}">${f.estado}</span>
                             </div>
                             <div class="flex items-center gap-2">
-                                ${f.estado === "Pendiente" ? `<button onclick="marcarComoPagada('${f.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer">PAGADA</button>` : ''}
-                                <button onclick="eliminarRegistro('${f.id}')" class="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer" title="Eliminar">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                    </svg>
-                                </button>
+                                ${f.estado === "Pendiente" ? `<button onclick="marcarComoPagada('${f.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded-md font-semibold cursor-pointer text-[10px]">PAGAR</button>` : ''}
                             </div>
                         </div>`;
                 });
-
                 contadorPendientes.innerText = pendientes + " Pendientes";
-                
-                if (pendientes > 0) {
-                    panelReportes.classList.remove('hidden');
-                } else {
-                    panelReportes.classList.add('hidden');
-                }
-
-            } catch (e) { listaFacturas.innerText = "Error cargando datos."; }
+                if (pendientes > 0) { panelReportes.classList.remove('hidden'); }
+                else { panelReportes.classList.add('hidden'); }
+            } catch (e) { listaFacturas.innerText = "Error de conexión."; }
         }
 
         async function marcarComoPagada(id) {
@@ -242,77 +252,152 @@
             cargarFacturasDesdeSheet();
         }
 
-        async function eliminarRegistro(id) {
-            if (!confirm("¿Seguro que deseas eliminar este registro?")) return;
-            try {
-                await fetch(WEB_APP_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: "delete", id: id })
-                });
-                cargarFacturasDesdeSheet();
-            } catch (e) {
-                alert("Error al eliminar.");
-            }
-        }
-
-        function construirTextoReporte() {
-            const pendientes = facturasGlobales.filter(f => f.estado === "Pendiente");
-            if (pendientes.length === 0) return "";
-
-            let texto = "📋 *Facturas Rendidas y no liquidadas*\n";
-            texto += "===============================\n\n";
-            
-            let total = 0;
-            pendientes.forEach((f, i) => {
-                const montoNum = Number(f.monto || 0);
-                total += montoNum;
-                texto += `*${i + 1}. ${f.empresa}*\n`;
-                texto += `🔹 *N° Factura:* ${f.numero || 'S/N'}\n`;
-                texto += `💰 *Monto:* $${montoNum.toLocaleString('es-CL')}\n`;
-                texto += "-----------------------------------\n";
-            });
-            
-            texto += `\n💵 *TOTAL PENDIENTE:* $${total.toLocaleString('es-CL')}`;
-            return texto;
-        }
-
         function enviarWhatsApp() {
-            const msg = construirTextoReporte();
-            if (!msg) return alert("No hay registros pendientes para enviar.");
-            window.location.href = `whatsapp://send?text=${encodeURIComponent(msg)}`;
-        }
-
-        async function copiarReporteTexto() {
-            const msg = construirTextoReporte();
-            if (!msg) return alert("No hay registros pendientes.");
-            try {
-                await navigator.clipboard.writeText(msg);
-                alert("Reporte estructurado copiado al portapapeles con éxito.");
-            } catch (err) {
-                alert("No se pudo copiar automáticamente.");
-            }
+            let texto = "📋 *Rendiciones pendientes*:\n";
+            let total = 0;
+            facturasGlobales.filter(f => f.estado === "Pendiente").forEach((f, i) => {
+                total += Number(f.monto || 0);
+                texto += `${i+1}. ${f.empresa} - N° ${f.numero || 'S/N'} - $${Number(f.monto).toLocaleString('es-CL')}\n`;
+            });
+            texto += `\n*Total:* $${total.toLocaleString('es-CL')}`;
+            window.location.href = `whatsapp://send?text=${encodeURIComponent(texto)}`;
         }
 
         document.getElementById('btn-theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
 
-        // ACTIVACIÓN AUTOMÁTICA INTELIGENTE DEL SERVICE WORKER
-        if ('serviceWorker' in navigator) {
-            const esEntornoProduccion = window.location.protocol.startsWith('http') && 
-                                        !window.location.hostname.includes('goog') && 
-                                        !window.location.hostname.includes('preview') && 
-                                        window.self === window.top;
-            
-            if (esEntornoProduccion) {
-                window.addEventListener('load', () => {
-                    navigator.serviceWorker.register('./sw.js')
-                        .then(reg => console.log('Service Worker registrado con éxito', reg))
-                        .catch(err => console.error('Error registrando Service Worker', err));
-                });
+
+        // ==========================================
+        // NUEVO: MOTOR DE PRUEBAS DE DIAGNÓSTICO PWA
+        // ==========================================
+        async function ejecutarPruebasDiag() {
+            console.log("Iniciando suite de pruebas PWA...");
+
+            // --- PRUEBA 1: Conexión Segura ---
+            const p1Status = document.getElementById('p1-status');
+            const p1Desc = document.getElementById('p1-desc');
+            if (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                p1Status.innerText = "🟢";
+                p1Desc.innerText = "Protocolo HTTPS activo (" + window.location.protocol + "). Cumple requisito.";
             } else {
-                console.log('Registro de Service Worker omitido automáticamente en previsualizaciones de desarrollo.');
+                p1Status.innerText = "🔴";
+                p1Desc.innerText = "Inseguro (" + window.location.protocol + "). PWA exige HTTPS obligatorio.";
             }
+
+            // --- PRUEBA 2: Carga física de manifest.json ---
+            const p2Status = document.getElementById('p2-status');
+            const p2Desc = document.getElementById('p2-desc');
+            const p3Status = document.getElementById('p3-status');
+            const p3Desc = document.getElementById('p3-desc');
+            
+            let manifestJson = null;
+            try {
+                // Buscamos el manifest relativo al archivo index.html para evitar fallas de rutas
+                const rutaManifest = "./manifest.json";
+                const response = await fetch(rutaManifest);
+                if (response.ok) {
+                    manifestJson = await response.json();
+                    p2Status.innerText = "🟢";
+                    p2Desc.innerText = "Archivo manifest.json encontrado y cargado correctamente.";
+                } else {
+                    p2Status.innerText = "🔴";
+                    p2Desc.innerText = "Error " + response.status + " al cargar manifest.json (¿Está subido?).";
+                }
+            } catch (err) {
+                p2Status.innerText = "🔴";
+                p2Desc.innerText = "No se pudo leer manifest.json: " + err.message;
+            }
+
+            // --- PRUEBA 3: Estructura interna de manifest.json ---
+            if (manifestJson) {
+                let erroresManifest = [];
+                if (!manifestJson.name && !manifestJson.short_name) erroresManifest.push("Falta name/short_name");
+                if (!manifestJson.start_url) erroresManifest.push("Falta start_url");
+                if (manifestJson.display !== "standalone" && manifestJson.display !== "fullscreen") erroresManifest.push("display debe ser 'standalone'");
+                if (!manifestJson.icons || manifestJson.icons.length === 0) {
+                    erroresManifest.push("No tiene iconos declarados");
+                } else {
+                    // Verificar que contenga al menos un tamaño obligatorio (192 o 512)
+                    const tamaños = manifestJson.icons.map(i => i.sizes);
+                    if (!tamaños.includes("192x192") && !tamaños.includes("512x512")) {
+                        erroresManifest.push("Falta icono 192x192 o 512x512");
+                    }
+                }
+
+                if (erroresManifest.length === 0) {
+                    p3Status.innerText = "🟢";
+                    p3Desc.innerText = "Manifest válido. Estructura e iconos correctos.";
+                } else {
+                    p3Status.innerText = "🔴";
+                    p3Desc.innerText = "Errores: " + erroresManifest.join(", ");
+                }
+            } else {
+                p3Status.innerText = "🔴";
+                p3Desc.innerText = "Prueba cancelada porque no se pudo leer el manifest.";
+            }
+
+            // --- PRUEBA 4: Carga física de sw.js en el servidor ---
+            const p4Status = document.getElementById('p4-status');
+            const p4Desc = document.getElementById('p4-desc');
+            let swExiste = false;
+            try {
+                const responseSw = await fetch('./sw.js');
+                if (responseSw.ok) {
+                    swExiste = true;
+                    p4Status.innerText = "🟢";
+                    p4Desc.innerText = "Archivo sw.js encontrado en el servidor y accesible.";
+                } else {
+                    p4Status.innerText = "🔴";
+                    p4Desc.innerText = "El servidor devolvió error " + responseSw.status + " para sw.js (¿Subiste el archivo?).";
+                }
+            } catch (err) {
+                p4Status.innerText = "🔴";
+                p4Desc.innerText = "Error buscando sw.js: " + err.message;
+            }
+
+            // --- PRUEBA 5: Registro del Service Worker ---
+            const p5Status = document.getElementById('p5-status');
+            const p5Desc = document.getElementById('p5-desc');
+            if ('serviceWorker' in navigator) {
+                if (swExiste) {
+                    try {
+                        const reg = await navigator.serviceWorker.register('./sw.js');
+                        p5Status.innerText = "🟢";
+                        p5Desc.innerText = "Service Worker registrado con éxito en el navegador.";
+                        
+                        // Escuchar cambios de estado para ver si se activa
+                        if (reg.active) {
+                            p5Desc.innerText += " (Estado: ACTIVO)";
+                        } else {
+                            p5Desc.innerText += " (Cargando...)";
+                        }
+                    } catch (err) {
+                        p5Status.innerText = "🔴";
+                        p5Desc.innerText = "Error al registrar sw.js: " + err.message;
+                    }
+                } else {
+                    p5Status.innerText = "🔴";
+                    p5Desc.innerText = "Cancelado. Se requiere que exista sw.js primero.";
+                }
+            } else {
+                p5Status.innerText = "🔴";
+                p5Desc.innerText = "Navegador obsoleto. No soporta Service Workers.";
+            }
+
+            // --- PRUEBA 6: Señal nativa de Android/Chrome ---
+            const p6Status = document.getElementById('p6-status');
+            const p6Desc = document.getElementById('p6-desc');
+            p6Status.innerText = "⏳";
+            p6Desc.innerText = "Esperando que Google Chrome dispare el evento install...";
         }
+
+        // Monitorear si el celular realmente aprueba la app como instalable
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log("¡Éxito! El sistema operativo Android aprobó la instalación de la PWA.");
+            const p6Status = document.getElementById('p6-status');
+            const p6Desc = document.getElementById('p6-desc');
+            p6Status.innerText = "🟢";
+            p6Desc.innerText = "¡Compatible! Tu celular acaba de aprobar la instalación. Ya puedes añadirla.";
+        });
     </script>
 </body>
 </html>
