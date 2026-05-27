@@ -8,13 +8,13 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://cdn-icons-png.magnific.com/512/18478/18478944.png",
+      "src": "https://cdn-icons-png.flaticon.com/512/5500/5500900.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "http://cdn-icons-png.magnific.com/512/18478/18478944.png",
+      "src": "https://cdn-icons-png.flaticon.com/512/5500/5500900.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
