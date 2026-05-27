@@ -373,13 +373,48 @@
         });
 
         async function cargarFacturasDesdeSheet() {
-            try {
-                const response = await fetch(WEB_APP_URL);
-                const datos = await response.json();
-                facturasGlobales = datos;
-                renderizarHistorial();
-            } catch (e) { listaFacturas.innerText = "Error cargando datos desde la planilla."; }
+    try {
+        const response = await fetch(WEB_APP_URL);
+        const datos = await response.json();
+        facturasGlobales = datos;
+
+        // 🔄 SINCRONIZADOR AUTOMÁTICO DE PROYECTOS DESDE EL SHEET
+        let huboCambios EnProyectos = false;
+        
+        datos.forEach(f => {
+            if (f.proyecto) {
+                // Limpiar espacios en blanco adicionales alrededor del nombre
+                const nombreProyectoSheet = String(f.proyecto).trim(); 
+                
+                if (nombreProyectoSheet !== "") {
+                    // Verificar si este proyecto ya existe en la lista del teléfono (sin importar mayúsculas/minúsculas)
+                    const existe = listaProyectos.some(p => p.toLowerCase() === nombreProyectoSheet.toLowerCase());
+                    
+                    if (!existe) {
+                        // ¡Encontramos un proyecto en el Sheet que el teléfono no conocía! Lo añadimos.
+                        listaProyectos.push(nombreProyectoSheet);
+                        huboCambiosEnProyectos = true;
+                    }
+                }
+            }
+        });
+
+        // Si encontramos proyectos nuevos en el Sheet, actualizamos la memoria local y los menús
+        if (huboCambiosEnProyectos) {
+            localStorage.setItem("pwa_proyectos", JSON.stringify(listaProyectos));
+            actualizarSelectProyectos();
+            actualizarListaEliminarProyectos();
         }
+
+        // Volver a dibujar los botones de filtro y la lista en pantalla
+        renderizarFiltros();
+        renderizarHistorial();
+
+    } catch (e) { 
+        console.error("Error al cargar datos:", e);
+        listaFacturas.innerText = "Error cargando datos desde la planilla."; 
+    }
+}
 
         function filtrarHistorial(proyecto) {
             proyectoFiltroActual = proyecto;
