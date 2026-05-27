@@ -14,10 +14,10 @@
         // Mantém a URL exata do seu Apps Script
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyOWjVhRSvJODa_IsdUijTvBAKvedgEWjbzS8yNPCRp6ymO-Jq1o0uQXRFPhwu3j9Attg/exec";
         let facturasGlobales = [];
-        let deferredPrompt = null; // Armazena o evento de instalação para quando o usuário clicar no botão
+        let deferredPrompt = null; // Guarda el evento de instalación para cuando el usuario haga clic
     </script>
 
-    <!-- BANNER DE INSTALAÇÃO PWA (Oculto por padrão, aparece quando compatível ou para ajuda) -->
+    <!-- BANNER DE INSTALACIÓN PWA (Oculto por defecto, se muestra dinámicamente) -->
     <div id="banner-instalar" class="hidden bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 shadow-md sticky top-0 z-50 transition-all duration-300">
         <div class="max-w-md mx-auto flex items-center justify-between gap-3">
             <div class="flex items-center gap-2">
@@ -27,7 +27,7 @@
                     <p class="text-[10px] text-emerald-100 leading-tight" id="banner-subtitulo">Use sem as bordas do navegador como um App real</p>
                 </div>
             </div>
-            <!-- Botão dinâmico que muda para instrução se o evento automático for bloqueado -->
+            <!-- Botón dinámico de instalación -->
             <button id="btn-instalar-banner" onclick="dispararInstalacionNativa()" class="bg-white hover:bg-emerald-50 text-emerald-700 font-extrabold text-xs px-3.5 py-2 rounded-xl shadow transition-all cursor-pointer shrink-0">
                 Instalar Agora
             </button>
@@ -84,13 +84,13 @@
         <!-- Lista de faturas -->
         <div id="lista-facturas" class="space-y-3 mb-8"></div>
 
-        <!-- Painel de diagnóstico (Console) -->
+        <!-- Panel de diagnóstico (Console) -->
         <div class="bg-slate-900 border-2 border-amber-500/40 p-4 rounded-2xl shadow-lg mt-8 text-slate-100">
             <div class="flex justify-between items-center mb-3">
                 <h3 class="text-sm font-bold text-amber-400 flex items-center gap-1">
                     🔍 Console de Diagnóstico PWA
                 </h3>
-                <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded font-mono text-slate-400">v1.4</span>
+                <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded font-mono text-slate-400">v1.5</span>
             </div>
             <p class="text-[11px] text-slate-300 mb-4 leading-relaxed">
                 Este console verifica os requisitos necessários para permitir a instalação nativa do seu aplicativo.
@@ -159,7 +159,7 @@
     </div>
 
     <script>
-        // --- LOGICA PRINCIPAL DA APLICAÇÃO ---
+        // --- LOGICA PRINCIPAL DE LA APLICACIÓN ---
         const inputFactura = document.getElementById('input-factura');
         const ocrStatus = document.getElementById('ocr-status');
         const formEmpresa = document.getElementById('form-empresa');
@@ -173,6 +173,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             cargarFacturasDesdeSheet();
             ejecutarPruebasDiag();
+            actualizarUIInstalacion(); // Se fuerza la actualización del banner tras cargar el DOM para evitar problemas de sincronización
         });
 
         inputFactura.addEventListener('change', async function(e) {
@@ -283,38 +284,76 @@
 
 
         // ========================================================
-        // CAPTURA INTELIGENTE DO EVENTO DE INSTALAÇÃO (PROMPT)
+        // CAPTURA INTELIGENTE DEL EVENTO DE INSTALACIÓN (PROMPT)
         // ========================================================
         window.addEventListener('beforeinstallprompt', (e) => {
-            // Evita que o navegador mostre o aviso automático invasivo
+            // Evita que el navegador muestre el aviso automático invasivo
             e.preventDefault();
-            // Guarda o evento para disparar quando o usuário clicar no botão
+            // Almacena el evento para dispararlo cuando el usuario haga clic
             deferredPrompt = e;
 
-            // Exibe o banner na tela
+            // Llama a la función de renderizado seguro de interfaz
+            actualizarUIInstalacion();
+        });
+
+        // Función centralizada para actualizar la interfaz del banner instalador de forma segura
+        function actualizarUIInstalacion() {
             const banner = document.getElementById('banner-instalar');
             const btnInstalar = document.getElementById('btn-instalar-banner');
             const titulo = document.getElementById('banner-titulo');
             const subtitulo = document.getElementById('banner-subtitulo');
             
             if (banner) {
-                banner.classList.remove('hidden');
-                titulo.innerText = "Instalar Controle de Despesas";
-                subtitulo.innerText = "Use sem as bordas do navegador como um App real";
-                btnInstalar.innerText = "Instalar Agora";
-                btnInstalar.onclick = dispararInstalacionNativa;
-            }
+                if (deferredPrompt) {
+                    // Si el navegador disparó el evento, se habilita la instalación automática nativa
+                    banner.classList.remove('hidden');
+                    titulo.innerText = "Instalar Controle de Despesas";
+                    subtitulo.innerText = "Use sem as bordas do navegador como um App real";
+                    if (btnInstalar) {
+                        btnInstalar.innerText = "Instalar Agora";
+                        btnInstalar.onclick = dispararInstalacionNativa;
+                    }
 
-            // Atualiza o console de diagnóstico para Verde
-            const p6Status = document.getElementById('p6-status');
-            const p6Desc = document.getElementById('p6-desc');
-            if (p6Status && p6Desc) {
-                p6Status.innerText = "🟢";
-                p6Desc.innerText = "Compatível! App autorizado para instalação manual imediata.";
-            }
-        });
+                    // Forzar indicador visual en verde en la consola
+                    const p6Status = document.getElementById('p6-status');
+                    const p6Desc = document.getElementById('p6-desc');
+                    if (p6Status && p6Desc) {
+                        p6Status.innerText = "🟢";
+                        p6Desc.innerText = "Compatível! App autorizado para instalação manual imediata.";
+                    }
+                } else {
+                    // Si las pruebas del 1 al 5 están listas pero Chrome no ha disparado el prompt automático (Caché/Instalaciones previas)
+                    const p1 = document.getElementById('p1-status')?.innerText === "🟢";
+                    const p2 = document.getElementById('p2-status')?.innerText === "🟢";
+                    const p3 = document.getElementById('p3-status')?.innerText === "🟢";
+                    const p4 = document.getElementById('p4-status')?.innerText === "🟢";
+                    const p5 = document.getElementById('p5-status')?.innerText === "🟢";
 
-        // Executa a janela oficial de instalação do navegador
+                    if (p1 && p2 && p3 && p4 && p5) {
+                        // Forzar el estado verde del paso 6 (Manual)
+                        const p6Status = document.getElementById('p6-status');
+                        const p6Desc = document.getElementById('p6-desc');
+                        if (p6Status && p6Desc) {
+                            p6Status.innerText = "🟢";
+                            p6Desc.innerText = "Compatível! Use o menu de 3 pontos do Chrome para instalar.";
+                        }
+
+                        // Forzar la aparición del banner explicativo
+                        banner.classList.remove('hidden');
+                        titulo.innerText = "Instalação Pronta";
+                        subtitulo.innerText = "Clique nos 3 pontos de cima e selecione 'Instalar aplicativo'";
+                        if (btnInstalar) {
+                            btnInstalar.innerText = "Como instalar?";
+                            btnInstalar.onclick = () => {
+                                alert("Instalação Manual Ativa:\n\n1. Clique nos 3 pontos (canto superior direito do navegador)\n2. Toque em 'Instalar aplicativo' ou 'Adicionar à tela inicial'.\n\nPronto! O app será adicionado de forma nativa.");
+                            };
+                        }
+                    }
+                }
+            }
+        }
+
+        // Ejecuta la ventana oficial de instalación del navegador
         async function dispararInstalacionNativa() {
             if (!deferredPrompt) return;
 
@@ -329,7 +368,7 @@
             }
         }
 
-        // Monitora se o usuário completou o fluxo de instalação
+        // Monitoriza si el usuario completó la instalación
         window.addEventListener('appinstalled', (evt) => {
             console.log('Aplicativo instalado com sucesso!');
             const banner = document.getElementById('banner-instalar');
@@ -451,46 +490,8 @@
                 p5Desc.innerText = "Navegador desatualizado. Sem suporte a Service Workers.";
             }
 
-            // --- TESTE 6: Sinal de Instalação Nível do Sistema ---
-            const p6Status = document.getElementById('p6-status');
-            const p6Desc = document.getElementById('p6-desc');
-            
-            if (deferredPrompt) {
-                p6Status.innerText = "🟢";
-                p6Desc.innerText = "Compatível! Banner ativo. Clique em 'Instalar Agora'.";
-            } else {
-                // FALLBACK INTELIGENTE: Se os testes de 1 a 5 estão verdes, o código está impecável.
-                // Apresentamos o banner em modo explicativo para orientar o usuário a instalar pelo menu de 3 pontos.
-                const todosVerdes = p1Status.innerText === "🟢" && 
-                                    p2Status.innerText === "🟢" && 
-                                    p3Status.innerText === "🟢" && 
-                                    p4Status.innerText === "🟢" && 
-                                    p5Status.innerText === "🟢";
-
-                if (todosVerdes) {
-                    p6Status.innerText = "🟡";
-                    p6Desc.innerText = "Pronto! Use o menu do navegador (3 pontos) e clique em 'Instalar Aplicativo'.";
-                    
-                    // Mostra o banner orientativo caso o navegador bloqueie o prompt automático
-                    const banner = document.getElementById('banner-instalar');
-                    const btnInstalar = document.getElementById('btn-instalar-banner');
-                    const titulo = document.getElementById('banner-titulo');
-                    const subtitulo = document.getElementById('banner-subtitulo');
-                    
-                    if (banner && btnInstalar) {
-                        banner.classList.remove('hidden');
-                        titulo.innerText = "Instalação Manual Ativa";
-                        subtitulo.innerText = "Clique nos 3 pontos de cima e selecione 'Instalar aplicativo'";
-                        btnInstalar.innerText = "Como instalar?";
-                        btnInstalar.onclick = () => {
-                            alert("Instalação Simples:\n\n1. Clique nos 3 pontos (canto superior direito do Chrome)\n2. Selecione 'Instalar aplicativo' ou 'Adicionar à tela de início'.\n\nPronto! Seu App estará no menu inicial.");
-                        };
-                    }
-                } else {
-                    p6Status.innerText = "⏳";
-                    p6Desc.innerText = "Aguardando aprovação das etapas anteriores para ativar a instalação...";
-                }
-            }
+            // Actualiza de inmediato la UI de instalación cruzando todos los diagnósticos
+            actualizarUIInstalacion();
         }
     </script>
 </body>
