@@ -242,7 +242,7 @@
                         formMonto.value = datosIA.monto || "";
                     } catch (error) {
                         alert("Error IA: " + error.message);
-                    } finaly {
+                    } finally {
                         ocrStatus.classList.add('hidden');
                     }
                 };
@@ -297,7 +297,7 @@
                 }
             } catch (error) {
                 alert("Error de red: " + error.message);
-            } finaly {
+            } finally {
                 btnGuardar.disabled = false;
                 btnGuardar.innerText = "Guardar Registro";
             }
