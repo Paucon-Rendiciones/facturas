@@ -1,14 +1,14 @@
-// Nombre del caché de la aplicación
-const CACHE_NAME = 'rendiciones-cache-v1';
+// Nombre del almacén de caché local para tu PWA de Rendiciones
+const CACHE_NAME = 'rendiciones-cache-v1.2';
 
-// Archivos locales que se pueden guardar para carga rápida
+// Recursos estáticos básicos que se guardarán para que la app cargue de inmediato
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './manifest.json'
 ];
 
-// Evento de instalación: guarda los archivos básicos en caché
+// Evento de instalación: Almacena los archivos esenciales en la caché del teléfono
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
@@ -19,7 +19,7 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// Evento de activación: limpia versiones viejas de caché
+// Evento de activación: Elimina cachés obsoletos de versiones anteriores
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then((keys) => {
@@ -36,17 +36,20 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Evento fetch: Requerido para habilitar el instalador nativo de la PWA.
-// Excluimos las llamadas a Google Apps Script para que los datos de tus rendiciones se actualicen siempre en tiempo real.
+// Evento fetch: Intercepta las peticiones de red.
+// Es un requisito indispensable para que Google Chrome apruebe la instalación en tu celular.
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
     
-    // Si la petición va dirigida a Google Apps Script, se fuerza el paso directo por red (sin usar caché)
+    // EXCLUSIÓN CRÍTICA: Forzamos a que las peticiones a Google Sheets (Apps Script) 
+    // pasen siempre por internet real y nunca se queden guardadas en caché.
+    // De lo contrario, tus registros nuevos no se verían reflejados en tiempo real.
     if (url.hostname.includes('script.google.com') || url.hostname.includes('googleusercontent.com')) {
         return; 
     }
 
-    // Para archivos locales estáticos (HTML, CSS o iconos), intenta leerlos de caché y si no los busca en la red
+    // Para el resto de archivos locales (HTML, estilos, iconos), intenta cargarlos 
+    // desde la caché para máxima velocidad, o búscalos en la red si no están guardados.
     event.respondWith(
         caches.match(event.request).then((cachedResponse) => {
             if (cachedResponse) {
