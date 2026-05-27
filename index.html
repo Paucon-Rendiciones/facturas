@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="pt">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Facturas</title>
+    <title>Controle de Faturas</title>
     <link class="manifest-link" rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1e293b">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
@@ -11,154 +11,155 @@
 <body class="bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 font-sans antialiased pb-24 transition-colors duration-200">
 
     <script>
-        // Conserva tu URL exacta de Apps Script
+        // Mantém a URL exata do seu Apps Script
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyOWjVhRSvJODa_IsdUijTvBAKvedgEWjbzS8yNPCRp6ymO-Jq1o0uQXRFPhwu3j9Attg/exec";
         let facturasGlobales = [];
-        let deferredPrompt = null; // Guardará el evento de instalación para cuando el usuario presione el botón
+        let deferredPrompt = null; // Armazena o evento de instalação para quando o usuário clicar no botão
     </script>
 
-    <!-- BANNER DE INSTALACIÓN PWA (Oculto por defecto, se muestra solo cuando es compatible) -->
+    <!-- BANNER DE INSTALAÇÃO PWA (Oculto por padrão, aparece quando compatível ou para ajuda) -->
     <div id="banner-instalar" class="hidden bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 shadow-md sticky top-0 z-50 transition-all duration-300">
         <div class="max-w-md mx-auto flex items-center justify-between gap-3">
             <div class="flex items-center gap-2">
                 <span class="text-xl">📲</span>
                 <div>
-                    <p class="font-bold text-xs leading-tight">Instalar Rendiciones</p>
-                    <p class="text-[10px] text-emerald-100 leading-tight">Úsala sin bordes de navegador como una App real</p>
+                    <p class="font-bold text-xs leading-tight" id="banner-titulo">Instalar Controle de Despesas</p>
+                    <p class="text-[10px] text-emerald-100 leading-tight" id="banner-subtitulo">Use sem as bordas do navegador como um App real</p>
                 </div>
             </div>
-            <button onclick="dispararInstalacionNativa()" class="bg-white hover:bg-emerald-50 text-emerald-700 font-extrabold text-xs px-3.5 py-2 rounded-xl shadow transition-all cursor-pointer shrink-0">
-                Instalar Ahora
+            <!-- Botão dinâmico que muda para instrução se o evento automático for bloqueado -->
+            <button id="btn-instalar-banner" onclick="dispararInstalacionNativa()" class="bg-white hover:bg-emerald-50 text-emerald-700 font-extrabold text-xs px-3.5 py-2 rounded-xl shadow transition-all cursor-pointer shrink-0">
+                Instalar Agora
             </button>
         </div>
     </div>
 
     <div class="max-w-md mx-auto p-4">
-        <!-- Cabecera de la App -->
+        <!-- Cabeçalho do App -->
         <header class="flex justify-between items-center mb-6">
             <div>
-                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Mis Rendiciones</h1>
-                <span id="contador-pendientes" class="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs font-semibold px-2.5 py-0.5 rounded-full">0 Pendientes</span>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Minhas Despesas</h1>
+                <span id="contador-pendientes" class="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs font-semibold px-2.5 py-0.5 rounded-full">0 Pendentes</span>
             </div>
             <button id="btn-theme" class="p-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm text-gray-600 dark:text-slate-300 text-xs">
-                Modo Oscuro
+                Modo Escuro
             </button>
         </header>
 
-        <!-- 1. Cargar Escaneo -->
+        <!-- 1. Carregar Digitalização -->
         <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
-            <h2 class="text-lg font-semibold mb-3">1. Cargar Escaneo</h2>
+            <h2 class="text-lg font-semibold mb-3">1. Carregar Digitalização</h2>
             <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer bg-gray-50 dark:bg-slate-900">
-                <p class="text-sm text-gray-500">Tomar Foto / Subir Factura</p>
+                <p class="text-sm text-gray-500">Tirar Foto / Enviar Fatura</p>
                 <input id="input-factura" type="file" accept="image/*" class="hidden" />
             </label>
             <div id="ocr-status" class="hidden text-sm text-blue-600 font-medium mt-3 text-center animate-pulse">
-                Analizando con Gemini...
+                Analisando com Gemini...
             </div>
         </div>
 
-        <!-- 2. Datos Detectados -->
+        <!-- 2. Dados Detectados -->
         <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
-            <h2 class="text-lg font-semibold mb-3">2. Datos Detectados</h2>
+            <h2 class="text-lg font-semibold mb-3">2. Dados Detectados</h2>
             <div class="space-y-3">
                 <input id="form-empresa" type="text" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="Empresa">
                 <div class="grid grid-cols-2 gap-3">
-                    <input id="form-numero" type="text" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="N° Factura">
-                    <input id="form-monto" type="number" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="Monto">
+                    <input id="form-numero" type="text" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="Nº da Fatura">
+                    <input id="form-monto" type="number" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="Valor">
                 </div>
-                <button id="btn-guardar" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-lg font-bold cursor-pointer transition-colors">Guardar Registro</button>
+                <button id="btn-guardar" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-lg font-bold cursor-pointer transition-colors">Salvar Registro</button>
             </div>
         </div>
 
-        <!-- Panel de Reportes -->
+        <!-- Painel de Relatórios -->
         <div id="panel-reportes" class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6 hidden flex gap-3">
             <button onclick="enviarWhatsApp()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors">
                 WhatsApp
             </button>
             <button onclick="copiarReporteTexto()" class="flex-1 bg-slate-600 hover:bg-slate-700 text-white p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors">
-                Copiar Reporte
+                Copiar Relatório
             </button>
         </div>
 
-        <!-- Lista de facturas -->
+        <!-- Lista de faturas -->
         <div id="lista-facturas" class="space-y-3 mb-8"></div>
 
-        <!-- Panel de diagnóstico (Consola) -->
+        <!-- Painel de diagnóstico (Console) -->
         <div class="bg-slate-900 border-2 border-amber-500/40 p-4 rounded-2xl shadow-lg mt-8 text-slate-100">
             <div class="flex justify-between items-center mb-3">
                 <h3 class="text-sm font-bold text-amber-400 flex items-center gap-1">
-                    🔍 Consola de Diagnóstico PWA
+                    🔍 Console de Diagnóstico PWA
                 </h3>
-                <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded font-mono text-slate-400">v1.3</span>
+                <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded font-mono text-slate-400">v1.4</span>
             </div>
             <p class="text-[11px] text-slate-300 mb-4 leading-relaxed">
-                Esta consola verifica los requisitos que los navegadores exigen para habilitar la instalación nativa.
+                Este console verifica os requisitos necessários para permitir a instalação nativa do seu aplicativo.
             </p>
 
             <div class="space-y-3 text-xs font-mono" id="contenedor-diagnostico">
-                <!-- Prueba 1: Protocolo seguro HTTPS -->
+                <!-- Teste 1: Conexão Segura HTTPS -->
                 <div class="flex justify-between items-start border-b border-slate-800 pb-2">
                     <div>
-                        <p class="font-semibold text-slate-200">1. Conexión Segura (HTTPS)</p>
-                        <span id="p1-desc" class="text-[10px] text-slate-400">Verificando protocolo de red...</span>
+                        <p class="font-semibold text-slate-200">1. Conexão Segura (HTTPS)</p>
+                        <span id="p1-desc" class="text-[10px] text-slate-400">Verificando protocolo de rede...</span>
                     </div>
                     <span id="p1-status" class="text-base">⏳</span>
                 </div>
 
-                <!-- Prueba 2: Existencia del Manifest -->
+                <!-- Teste 2: Existência do Manifest -->
                 <div class="flex justify-between items-start border-b border-slate-800 pb-2">
                     <div>
-                        <p class="font-semibold text-slate-200">2. Lectura de manifest.json</p>
-                        <span id="p2-desc" class="text-[10px] text-slate-400">Buscando archivo de configuración...</span>
+                        <p class="font-semibold text-slate-200">2. Leitura de manifest.json</p>
+                        <span id="p2-desc" class="text-[10px] text-slate-400">Buscando arquivo de configuração...</span>
                     </div>
                     <span id="p2-status" class="text-base">⏳</span>
                 </div>
 
-                <!-- Prueba 3: Estructura del Manifest -->
+                <!-- Teste 3: Estrutura do Manifest -->
                 <div class="flex justify-between items-start border-b border-slate-800 pb-2">
                     <div>
-                        <p class="font-semibold text-slate-200">3. Datos del Manifest</p>
-                        <span id="p3-desc" class="text-[10px] text-slate-400">Analizando nombres, colores e iconos...</span>
+                        <p class="font-semibold text-slate-200">3. Dados do Manifest</p>
+                        <span id="p3-desc" class="text-[10px] text-slate-400">Analisando nomes, cores e ícones...</span>
                     </div>
                     <span id="p3-status" class="text-base">⏳</span>
                 </div>
 
-                <!-- Prueba 4: Archivo Service Worker -->
+                <!-- Teste 4: Arquivo Service Worker -->
                 <div class="flex justify-between items-start border-b border-slate-800 pb-2">
                     <div>
-                        <p class="font-semibold text-slate-200">4. Archivo Service Worker (sw.js)</p>
-                        <span id="p4-desc" class="text-[10px] text-slate-400">Verificando acceso a sw.js en el servidor...</span>
+                        <p class="font-semibold text-slate-200">4. Arquivo Service Worker (sw.js)</p>
+                        <span id="p4-desc" class="text-[10px] text-slate-400">Verificando acesso ao sw.js no servidor...</span>
                     </div>
                     <span id="p4-status" class="text-base">⏳</span>
                 </div>
 
-                <!-- Prueba 5: Registro del Service Worker -->
+                <!-- Teste 5: Registro do Service Worker -->
                 <div class="flex justify-between items-start border-b border-slate-800 pb-2">
                     <div>
-                        <p class="font-semibold text-slate-200">5. Registro del Service Worker</p>
-                        <span id="p5-desc" class="text-[10px] text-slate-400">Comprobando si el navegador lo activó...</span>
+                        <p class="font-semibold text-slate-200">5. Registro do Service Worker</p>
+                        <span id="p5-desc" class="text-[10px] text-slate-400">Verificando ativação no navegador...</span>
                     </div>
                     <span id="p5-status" class="text-base">⏳</span>
                 </div>
 
-                <!-- Prueba 6: Evento de Instalación -->
+                <!-- Teste 6: Evento de Instalação -->
                 <div class="flex justify-between items-start pb-1">
                     <div>
-                        <p class="font-semibold text-slate-200">6. Estado de Instalabilidad</p>
-                        <span id="p6-desc" class="text-[10px] text-slate-400">Esperando señal de compatibilidad...</span>
+                        <p class="font-semibold text-slate-200">6. Compatibilidade do Dispositivo</p>
+                        <span id="p6-desc" class="text-[10px] text-slate-400">Aguardando sinal de compatibilidade...</span>
                     </div>
                     <span id="p6-status" class="text-base">⏳</span>
                 </div>
             </div>
 
             <button onclick="ejecutarPruebasDiag()" class="mt-4 w-full bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 text-xs font-bold py-2 rounded-xl transition-all cursor-pointer">
-                🔄 Forzar diagnóstico manual
+                🔄 Forçar diagnóstico manual
             </button>
         </div>
     </div>
 
     <script>
-        // --- CÓDIGO OPERATIVO ORIGINAL DE FACTURAS ---
+        // --- LOGICA PRINCIPAL DA APLICAÇÃO ---
         const inputFactura = document.getElementById('input-factura');
         const ocrStatus = document.getElementById('ocr-status');
         const formEmpresa = document.getElementById('form-empresa');
@@ -199,7 +200,7 @@
                         formNumero.value = datosIA.numero || "";
                         formMonto.value = datosIA.monto || "";
                     } catch (error) {
-                        alert("Error IA: " + error.message);
+                        alert("Erro IA: " + error.message);
                     } finally {
                         ocrStatus.classList.add('hidden');
                     }
@@ -213,9 +214,9 @@
             const empresa = formEmpresa.value.trim();
             const numero = formNumero.value.trim();
             const monto = formMonto.value.trim();
-            if (!empresa || !monto) { alert("La empresa y el monto son obligatorios."); return; }
+            if (!empresa || !monto) { alert("A empresa e o valor são obrigatórios."); return; }
             btnGuardar.disabled = true;
-            btnGuardar.innerText = "Guardando...";
+            btnGuardar.innerText = "Salvando...";
             try {
                 const respuesta = await fetch(WEB_APP_URL, {
                     method: 'POST',
@@ -226,9 +227,9 @@
                 if (res.status === "ok") {
                     formEmpresa.value = ""; formNumero.value = ""; formMonto.value = "";
                     await cargarFacturasDesdeSheet();
-                } else { alert("Error al guardar."); }
-            } catch (error) { alert("Error de red: " + error.message); }
-            finally { btnGuardar.disabled = false; btnGuardar.innerText = "Guardar Registro"; }
+                } else { alert("Erro ao salvar."); }
+            } catch (error) { alert("Erro de rede: " + error.message); }
+            finally { btnGuardar.disabled = false; btnGuardar.innerText = "Salvar Registro"; }
         });
 
         async function cargarFacturasDesdeSheet() {
@@ -244,7 +245,7 @@
                         <div class="p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 flex justify-between items-center shadow-sm text-xs">
                             <div>
                                 <p class="font-bold text-gray-900 dark:text-white">${f.empresa}</p>
-                                <p class="text-gray-500 dark:text-gray-400">N° ${f.numero || 'S/N'} • $${Number(f.monto).toLocaleString('es-CL')}</p>
+                                <p class="text-gray-500 dark:text-gray-400">Nº ${f.numero || 'S/N'} • $${Number(f.monto).toLocaleString('es-CL')}</p>
                                 <span class="inline-block mt-1 text-[10px] px-2 py-0.5 rounded ${f.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400'}">${f.estado}</span>
                             </div>
                             <div class="flex items-center gap-2">
@@ -252,10 +253,10 @@
                             </div>
                         </div>`;
                 });
-                contadorPendientes.innerText = pendientes + " Pendientes";
+                contadorPendientes.innerText = pendientes + " Pendentes";
                 if (pendientes > 0) { panelReportes.classList.remove('hidden'); }
                 else { panelReportes.classList.add('hidden'); }
-            } catch (e) { listaFacturas.innerText = "Error de conexión."; }
+            } catch (e) { listaFacturas.innerText = "Erro de conexão."; }
         }
 
         async function marcarComoPagada(id) {
@@ -268,11 +269,11 @@
         }
 
         function enviarWhatsApp() {
-            let texto = "📋 *Rendiciones pendientes*:\n";
+            let texto = "📋 *Despesas pendentes*:\n";
             let total = 0;
             facturasGlobales.filter(f => f.estado === "Pendiente").forEach((f, i) => {
                 total += Number(f.monto || 0);
-                texto += `${i+1}. ${f.empresa} - N° ${f.numero || 'S/N'} - $${Number(f.monto).toLocaleString('es-CL')}\n`;
+                texto += `${i+1}. ${f.empresa} - Nº ${f.numero || 'S/N'} - $${Number(f.monto).toLocaleString('es-CL')}\n`;
             });
             texto += `\n*Total:* $${total.toLocaleString('es-CL')}`;
             window.location.href = `whatsapp://send?text=${encodeURIComponent(texto)}`;
@@ -282,41 +283,45 @@
 
 
         // ========================================================
-        // CAPTURA INTELIGENTE DEL EVENTO DE INSTALACIÓN (PROMPT)
+        // CAPTURA INTELIGENTE DO EVENTO DE INSTALAÇÃO (PROMPT)
         // ========================================================
         window.addEventListener('beforeinstallprompt', (e) => {
-            // Evitar que Brave o Chrome muestren su propio aviso automático molesto
+            // Evita que o navegador mostre o aviso automático invasivo
             e.preventDefault();
-            // Guardar el evento para dispararlo cuando presionen el botón
+            // Guarda o evento para disparar quando o usuário clicar no botão
             deferredPrompt = e;
 
-            // Mostrar el hermoso banner de instalación en la cabecera
+            // Exibe o banner na tela
             const banner = document.getElementById('banner-instalar');
+            const btnInstalar = document.getElementById('btn-instalar-banner');
+            const titulo = document.getElementById('banner-titulo');
+            const subtitulo = document.getElementById('banner-subtitulo');
+            
             if (banner) {
                 banner.classList.remove('hidden');
+                titulo.innerText = "Instalar Controle de Despesas";
+                subtitulo.innerText = "Use sem as bordas do navegador como um App real";
+                btnInstalar.innerText = "Instalar Agora";
+                btnInstalar.onclick = dispararInstalacionNativa;
             }
 
-            // Actualizar consola de diagnóstico a 100% verde
+            // Atualiza o console de diagnóstico para Verde
             const p6Status = document.getElementById('p6-status');
             const p6Desc = document.getElementById('p6-desc');
             if (p6Status && p6Desc) {
                 p6Status.innerText = "🟢";
-                p6Desc.innerText = "¡Compatible! App autorizada para instalarse de forma manual presionando 'Instalar Ahora'.";
+                p6Desc.innerText = "Compatível! App autorizado para instalação manual imediata.";
             }
         });
 
-        // Ejecuta la ventana emergente nativa tras hacer clic en nuestro banner
+        // Executa a janela oficial de instalação do navegador
         async function dispararInstalacionNativa() {
             if (!deferredPrompt) return;
 
-            // Mostrar el prompt nativo
             deferredPrompt.prompt();
-
-            // Esperar a que el usuario responda
             const { outcome } = await deferredPrompt.userChoice;
-            console.log(`Respuesta del usuario: ${outcome}`);
+            console.log(`Resposta do usuário para instalação: ${outcome}`);
 
-            // Limpiar la variable y ocultar el banner
             deferredPrompt = null;
             const banner = document.getElementById('banner-instalar');
             if (banner) {
@@ -324,9 +329,9 @@
             }
         }
 
-        // Monitorea si el usuario completó la instalación
+        // Monitora se o usuário completou o fluxo de instalação
         window.addEventListener('appinstalled', (evt) => {
-            console.log('Aplicación instalada con éxito.');
+            console.log('Aplicativo instalado com sucesso!');
             const banner = document.getElementById('banner-instalar');
             if (banner) {
                 banner.classList.add('hidden');
@@ -335,23 +340,23 @@
 
 
         // ==========================================
-        // MOTOR DE PRUEBAS DE DIAGNÓSTICO PWA
+        // MOTOR DE TESTES DE DIAGNÓSTICO PWA
         // ==========================================
         async function ejecutarPruebasDiag() {
-            console.log("Iniciando suite de pruebas PWA...");
+            console.log("Iniciando bateria de testes PWA...");
 
-            // --- PRUEBA 1: Conexión Segura ---
+            // --- TESTE 1: Conexão Segura ---
             const p1Status = document.getElementById('p1-status');
             const p1Desc = document.getElementById('p1-desc');
             if (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                 p1Status.innerText = "🟢";
-                p1Desc.innerText = "Protocolo HTTPS activo (" + window.location.protocol + "). Cumple requisito.";
+                p1Desc.innerText = "Protocolo HTTPS ativo (" + window.location.protocol + "). Atende aos requisitos.";
             } else {
                 p1Status.innerText = "🔴";
-                p1Desc.innerText = "Inseguro (" + window.location.protocol + "). PWA exige HTTPS obligatorio.";
+                p1Desc.innerText = "Inseguro (" + window.location.protocol + "). PWAs exigem HTTPS obrigatoriamente.";
             }
 
-            // --- PRUEBA 2: Carga física de manifest.json ---
+            // --- TESTE 2: Leitura do manifest.json ---
             const p2Status = document.getElementById('p2-status');
             const p2Desc = document.getElementById('p2-desc');
             const p3Status = document.getElementById('p3-status');
@@ -363,44 +368,44 @@
                 if (response.ok) {
                     manifestJson = await response.json();
                     p2Status.innerText = "🟢";
-                    p2Desc.innerText = "Archivo manifest.json encontrado y cargado correctamente.";
+                    p2Desc.innerText = "Arquivo manifest.json localizado e carregado corretamente.";
                 } else {
                     p2Status.innerText = "🔴";
-                    p2Desc.innerText = "Error " + response.status + " al cargar manifest.json (¿Está subido?).";
+                    p2Desc.innerText = "Erro " + response.status + " ao carregar manifest.json (Verifique se o arquivo existe).";
                 }
             } catch (err) {
                 p2Status.innerText = "🔴";
-                p2Desc.innerText = "No se pudo leer manifest.json: " + err.message;
+                p2Desc.innerText = "Não foi possível carregar o manifest.json: " + err.message;
             }
 
-            // --- PRUEBA 3: Estructura interna de manifest.json ---
+            // --- TESTE 3: Estrutura do manifest.json ---
             if (manifestJson) {
                 let erroresManifest = [];
-                if (!manifestJson.name && !manifestJson.short_name) erroresManifest.push("Falta name/short_name");
-                if (!manifestJson.start_url) erroresManifest.push("Falta start_url");
-                if (manifestJson.display !== "standalone" && manifestJson.display !== "fullscreen") erroresManifest.push("display debe ser 'standalone'");
+                if (!manifestJson.name && !manifestJson.short_name) erroresManifest.push("Ausência de name/short_name");
+                if (!manifestJson.start_url) erroresManifest.push("Ausência de start_url");
+                if (manifestJson.display !== "standalone" && manifestJson.display !== "fullscreen") erroresManifest.push("display deve ser 'standalone'");
                 if (!manifestJson.icons || manifestJson.icons.length === 0) {
-                    erroresManifest.push("No tiene iconos declarados");
+                    erroresManifest.push("Nenhum ícone declarado no manifest");
                 } else {
-                    const tamaños = manifestJson.icons.map(i => i.sizes);
-                    if (!tamaños.includes("192x192") && !tamaños.includes("512x512")) {
-                        erroresManifest.push("Falta icono 192x192 o 512x512");
+                    const tamanhos = manifestJson.icons.map(i => i.sizes);
+                    if (!tamanhos.includes("192x192") && !tamanhos.includes("512x512")) {
+                        erroresManifest.push("Ausência de ícone de 192x192 ou 512x512");
                     }
                 }
 
                 if (erroresManifest.length === 0) {
                     p3Status.innerText = "🟢";
-                    p3Desc.innerText = "Manifest válido. Estructura e iconos correctos.";
+                    p3Desc.innerText = "Manifest válido. Estrutura e definições de ícones corretas.";
                 } else {
                     p3Status.innerText = "🔴";
-                    p3Desc.innerText = "Errores: " + erroresManifest.join(", ");
+                    p3Desc.innerText = "Erros encontrados: " + erroresManifest.join(", ");
                 }
             } else {
                 p3Status.innerText = "🔴";
-                p3Desc.innerText = "Prueba cancelada porque no se pudo leer el manifest.";
+                p3Desc.innerText = "Teste cancelado devido a falha crítica no manifest.json.";
             }
 
-            // --- PRUEBA 4: Carga física de sw.js en el servidor ---
+            // --- TESTE 4: Carregamento do sw.js ---
             const p4Status = document.getElementById('p4-status');
             const p4Desc = document.getElementById('p4-desc');
             let swExiste = false;
@@ -409,17 +414,17 @@
                 if (responseSw.ok) {
                     swExiste = true;
                     p4Status.innerText = "🟢";
-                    p4Desc.innerText = "Archivo sw.js encontrado en el servidor y accesible.";
+                    p4Desc.innerText = "Arquivo sw.js localizado e acessível no servidor.";
                 } else {
                     p4Status.innerText = "🔴";
-                    p4Desc.innerText = "El servidor devolvió error " + responseSw.status + " para sw.js (¿Subiste el archivo?).";
+                    p4Desc.innerText = "O servidor retornou erro " + responseSw.status + " para o arquivo sw.js.";
                 }
             } catch (err) {
                 p4Status.innerText = "🔴";
-                p4Desc.innerText = "Error buscando sw.js: " + err.message;
+                p4Desc.innerText = "Erro ao buscar sw.js: " + err.message;
             }
 
-            // --- PRUEBA 5: Registro del Service Worker ---
+            // --- TESTE 5: Registro do Service Worker ---
             const p5Status = document.getElementById('p5-status');
             const p5Desc = document.getElementById('p5-desc');
             if ('serviceWorker' in navigator) {
@@ -427,34 +432,64 @@
                     try {
                         const reg = await navigator.serviceWorker.register('./sw.js');
                         p5Status.innerText = "🟢";
-                        p5Desc.innerText = "Service Worker registrado con éxito en el navegador.";
+                        p5Desc.innerText = "Service Worker registrado com êxito.";
                         if (reg.active) {
-                            p5Desc.innerText += " (Estado: ACTIVO)";
+                            p5Desc.innerText += " (Status: ATIVO)";
                         } else {
-                            p5Desc.innerText += " (Cargando...)";
+                            p5Desc.innerText += " (Carregando...)";
                         }
                     } catch (err) {
                         p5Status.innerText = "🔴";
-                        p5Desc.innerText = "Error al registrar sw.js: " + err.message;
+                        p5Desc.innerText = "Falha no registro do sw.js: " + err.message;
                     }
                 } else {
                     p5Status.innerText = "🔴";
-                    p5Desc.innerText = "Cancelado. Se requiere que exista sw.js primero.";
+                    p5Desc.innerText = "Cancelado. Requer sw.js operacional primeiro.";
                 }
             } else {
                 p5Status.innerText = "🔴";
-                p5Desc.innerText = "Navegador obsoleto. No soporta Service Workers.";
+                p5Desc.innerText = "Navegador desatualizado. Sem suporte a Service Workers.";
             }
 
-            // --- PRUEBA 6: Señal de compatibilidad ---
+            // --- TESTE 6: Sinal de Instalação Nível do Sistema ---
             const p6Status = document.getElementById('p6-status');
             const p6Desc = document.getElementById('p6-desc');
+            
             if (deferredPrompt) {
                 p6Status.innerText = "🟢";
-                p6Desc.innerText = "¡Compatible! Banner activo. Presiona 'Instalar Ahora' arriba.";
+                p6Desc.innerText = "Compatível! Banner ativo. Clique em 'Instalar Agora'.";
             } else {
-                p6Status.innerText = "⏳";
-                p6Desc.innerText = "Esperando señal de compatibilidad del sistema móvil... (Prueba a limpiar caché)";
+                // FALLBACK INTELIGENTE: Se os testes de 1 a 5 estão verdes, o código está impecável.
+                // Apresentamos o banner em modo explicativo para orientar o usuário a instalar pelo menu de 3 pontos.
+                const todosVerdes = p1Status.innerText === "🟢" && 
+                                    p2Status.innerText === "🟢" && 
+                                    p3Status.innerText === "🟢" && 
+                                    p4Status.innerText === "🟢" && 
+                                    p5Status.innerText === "🟢";
+
+                if (todosVerdes) {
+                    p6Status.innerText = "🟡";
+                    p6Desc.innerText = "Pronto! Use o menu do navegador (3 pontos) e clique em 'Instalar Aplicativo'.";
+                    
+                    // Mostra o banner orientativo caso o navegador bloqueie o prompt automático
+                    const banner = document.getElementById('banner-instalar');
+                    const btnInstalar = document.getElementById('btn-instalar-banner');
+                    const titulo = document.getElementById('banner-titulo');
+                    const subtitulo = document.getElementById('banner-subtitulo');
+                    
+                    if (banner && btnInstalar) {
+                        banner.classList.remove('hidden');
+                        titulo.innerText = "Instalação Manual Ativa";
+                        subtitulo.innerText = "Clique nos 3 pontos de cima e selecione 'Instalar aplicativo'";
+                        btnInstalar.innerText = "Como instalar?";
+                        btnInstalar.onclick = () => {
+                            alert("Instalação Simples:\n\n1. Clique nos 3 pontos (canto superior direito do Chrome)\n2. Selecione 'Instalar aplicativo' ou 'Adicionar à tela de início'.\n\nPronto! Seu App estará no menu inicial.");
+                        };
+                    }
+                } else {
+                    p6Status.innerText = "⏳";
+                    p6Desc.innerText = "Aguardando aprovação das etapas anteriores para ativar a instalação...";
+                }
             }
         }
     </script>
