@@ -183,16 +183,37 @@
             input.value = "";
         }
 
-        function eliminarProyecto(nombre) {
+        async function eliminarProyecto(nombre) {
             if (nombre === "General") {
                 alert("El proyecto 'General' está protegido del sistema y no puede eliminarse.");
                 return;
             }
 
-            if (!confirm(`¿Estás seguro de que deseas eliminar el proyecto "${nombre}"?\n\n⚠️ NOTA: Las facturas que ya estén en Google Sheets bajo este proyecto NO se borrarán, pero el filtro visual de este proyecto desaparecerá.`)) {
+            if (!confirm(`¿Estás seguro de que deseas eliminar el proyecto "${nombre}"?\n\n⚠️ ¡ATENCIÓN!: Esto eliminará el proyecto de la App y borrará AUTOMÁTICAMENTE todas sus facturas asociadas en Google Sheets.`)) {
                 return;
             }
 
+            // 1. Filtrar en la memoria cuáles facturas pertenecen a este proyecto específico
+            const facturasAEliminar = facturasGlobales.filter(f => String(f.proyecto).toLowerCase() === String(nombre).toLowerCase());
+
+            if (facturasAEliminar.length > 0) {
+                console.log(`Se encontraron ${facturasAEliminar.length} facturas. Borrando en Google Sheets...`);
+                
+                // Ejecuta el borrado una por una usando la acción "delete" existente en Google Sheets
+                for (const factura of facturasAEliminar) {
+                    try {
+                        await fetch(WEB_APP_URL, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                            body: JSON.stringify({ action: "delete", id: factura.id })
+                        });
+                    } catch (error) {
+                        console.error(`Error al intentar borrar la factura con ID ${factura.id}:`, error);
+                    }
+                }
+            }
+
+            // 2. Remover el proyecto de la memoria local (localStorage)
             listaProyectos = listaProyectos.filter(p => p !== nombre);
             localStorage.setItem("pwa_proyectos", JSON.stringify(listaProyectos));
 
@@ -200,10 +221,13 @@
                 proyectoFiltroActual = "TODOS";
             }
 
+            // 3. Actualizar la interfaz visual y volver a descargar los datos limpios y sincronizados desde el Sheet
             actualizarSelectProyectos();
             renderizarFiltros();
             actualizarListaEliminarProyectos();
-            renderizarHistorial();
+            await cargarFacturasDesdeSheet();
+            
+            alert(`El proyecto "${nombre}" y sus facturas asociadas han sido eliminados con éxito.`);
         }
 
         function actualizarSelectProyectos() {
