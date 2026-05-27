@@ -82,20 +82,24 @@
                     <div class="flex justify-between items-center mb-1">
                         <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Asignar a Proyecto:</label>
                         <button onclick="toggleNuevoProyectoUI()" class="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer flex items-center gap-0.5">
-                            ➕ Crear Nuevo
+                            ⚙️ Gestionar Proyectos
                         </button>
                     </div>
                     
                     <select id="form-proyecto" class="w-full p-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm font-semibold focus:ring-2 focus:ring-blue-500">
-                        </select>
+                    </select>
 
                     <div id="nuevo-proyecto-container" class="hidden mt-2 p-3 bg-blue-50 dark:bg-slate-900/50 border border-blue-100 dark:border-blue-950/50 rounded-lg transition-all">
-                        <p class="text-[11px] text-blue-700 dark:text-blue-300 font-bold mb-1.5 uppercase tracking-wide">Nuevo Proyecto / Carpeta:</p>
-                        <div class="flex gap-2">
+                        <p class="text-[11px] text-blue-700 dark:text-blue-300 font-bold mb-1.5 uppercase tracking-wide">Nuevo Proyecto:</p>
+                        <div class="flex gap-2 mb-3">
                             <input id="input-nuevo-proyecto" type="text" class="flex-1 p-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-xs" placeholder="Nombre de la obra/carpeta...">
                             <button onclick="agregarNuevoProyecto()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-bold cursor-pointer shrink-0">
                                 Añadir
                             </button>
+                        </div>
+
+                        <p class="text-[11px] text-blue-700 dark:text-blue-300 font-bold mb-1.5 uppercase tracking-wide border-t border-blue-100 dark:border-blue-950/30 pt-2">Eliminar Proyectos:</p>
+                        <div id="lista-proyectos-eliminar" class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                         </div>
                     </div>
                 </div>
@@ -117,7 +121,7 @@
         <div class="mb-4">
             <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">📁 Filtrar Historial por Proyecto:</label>
             <div id="filtros-proyectos-container" class="flex gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
-                </div>
+            </div>
         </div>
 
         <div id="lista-facturas" class="space-y-3"></div>
@@ -138,17 +142,19 @@
         document.addEventListener('DOMContentLoaded', () => {
             actualizarSelectProyectos();
             renderizarFiltros();
+            actualizarListaEliminarProyectos();
             cargarFacturasDesdeSheet();
             verificarEstadoPWA();
         });
 
-        // --- SISTEMA DINÁMICO DE CREACIÓN DE PROYECTOS ---
+        // --- SISTEMA DINÁMICO DE GESTIÓN DE PROYECTOS ---
         
         function toggleNuevoProyectoUI() {
             const container = document.getElementById("nuevo-proyecto-container");
             container.classList.toggle("hidden");
             if (!container.classList.contains("hidden")) {
                 document.getElementById("input-nuevo-proyecto").focus();
+                actualizarListaEliminarProyectos();
             }
         }
 
@@ -171,12 +177,33 @@
 
             actualizarSelectProyectos();
             renderizarFiltros();
+            actualizarListaEliminarProyectos();
 
-            // Seleccionar automáticamente el proyecto que acabas de crear
             formProyecto.value = nuevoNombre;
-
             input.value = "";
-            document.getElementById("nuevo-proyecto-container").classList.add("hidden");
+        }
+
+        function eliminarProyecto(nombre) {
+            if (nombre === "General") {
+                alert("El proyecto 'General' está protegido del sistema y no puede eliminarse.");
+                return;
+            }
+
+            if (!confirm(`¿Estás seguro de que deseas eliminar el proyecto "${nombre}"?\n\n⚠️ NOTA: Las facturas que ya estén en Google Sheets bajo este proyecto NO se borrarán, pero el filtro visual de este proyecto desaparecerá.`)) {
+                return;
+            }
+
+            listaProyectos = listaProyectos.filter(p => p !== nombre);
+            localStorage.setItem("pwa_proyectos", JSON.stringify(listaProyectos));
+
+            if (proyectoFiltroActual === nombre) {
+                proyectoFiltroActual = "TODOS";
+            }
+
+            actualizarSelectProyectos();
+            renderizarFiltros();
+            actualizarListaEliminarProyectos();
+            renderizarHistorial();
         }
 
         function actualizarSelectProyectos() {
@@ -205,10 +232,30 @@
             container.innerHTML = html;
         }
 
-        function filtrarHistorial(proyecto) {
-            proyectoFiltroActual = proyecto;
-            renderizarFiltros();
-            renderizarHistorial();
+        function actualizarListaEliminarProyectos() {
+            const container = document.getElementById('lista-proyectos-eliminar');
+            if (!container) return;
+            container.innerHTML = "";
+
+            listaProyectos.forEach(p => {
+                const esGeneral = p === "General";
+                const div = document.createElement("div");
+                div.className = "flex justify-between items-center bg-white dark:bg-slate-900 p-2 rounded-xl border border-gray-200 dark:border-slate-800 text-xs shadow-sm";
+                
+                div.innerHTML = `
+                    <span class="font-semibold text-gray-700 dark:text-gray-300">${p === "General" ? "General / Gastos Comunes" : p}</span>
+                    ${esGeneral ? `
+                        <span class="text-[10px] text-gray-400 font-mono italic px-1 py-0.5">Sistema</span>
+                    ` : `
+                        <button onclick="eliminarProyecto('${p}')" class="p-1 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800 cursor-pointer transition-colors" title="Eliminar proyecto">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
+                    `}
+                `;
+                container.appendChild(div);
+            });
         }
 
         // --- GESTIÓN GENERAL DE LA APLICACIÓN ---
@@ -308,6 +355,12 @@
                 facturasGlobales = datos;
                 renderizarHistorial();
             } catch (e) { listaFacturas.innerText = "Error cargando datos desde la planilla."; }
+        }
+
+        function filtrarHistorial(proyecto) {
+            proyectoFiltroActual = proyecto;
+            renderizarFiltros();
+            renderizarHistorial();
         }
 
         function renderizarHistorial() {
