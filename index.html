@@ -4,21 +4,32 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control de Facturas</title>
-    <link rel="manifest" href="manifest.json">
+    <link class="manifest" rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1e293b">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body class="bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 font-sans antialiased pb-24 transition-colors duration-200">
 
     <script>
-        // Conserva tu URL exacta de Apps Script
+        // MANTENEMOS TU URL EXACTA DE PRODUCCIÓN
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyOWjVhRSvJODa_IsdUijTvBAKvedgEWjbzS8yNPCRp6ymO-Jq1o0uQXRFPhwu3j9Attg/exec";
-        // Almacenamiento local para generar reportes y validar duplicados en tiempo real
+        
         let facturasGlobales = [];
-        let deferredPrompt = null; // Almacena el evento de instalación nativo
+        let proyectoFiltroActual = "TODOS";
+        let deferredPrompt = null; // Control de instalación PWA
+
+        // Cargar listado de proyectos (Migración automática si venías del entorno test)
+        let listaProyectos = ["General", "Proyecto Alfa", "Proyecto Beta", "Mantenimiento Red"];
+        if (localStorage.getItem("pwa_proyectos")) {
+            listaProyectos = JSON.parse(localStorage.getItem("pwa_proyectos"));
+        } else if (localStorage.getItem("pwa_test_proyectos")) {
+            listaProyectos = JSON.parse(localStorage.getItem("pwa_test_proyectos"));
+            localStorage.setItem("pwa_proyectos", JSON.stringify(listaProyectos));
+        } else {
+            localStorage.setItem("pwa_proyectos", JSON.stringify(listaProyectos));
+        }
     </script>
 
-    <!-- BANNER DE INSTALACIÓN PWA (Inteligente y auto-ocultable) -->
     <div id="banner-instalar" class="hidden bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 shadow-md sticky top-0 z-50 transition-all duration-300">
         <div class="max-w-md mx-auto flex items-center justify-between gap-3">
             <div class="flex items-center gap-2">
@@ -40,7 +51,6 @@
     </div>
 
     <div class="max-w-md mx-auto p-4">
-        <!-- Cabecera de la App -->
         <header class="flex justify-between items-center mb-6">
             <div>
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Mis Rendiciones</h1>
@@ -51,7 +61,6 @@
             </button>
         </header>
 
-        <!-- 1. Cargar Escaneo -->
         <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
             <h2 class="text-lg font-semibold mb-3">1. Cargar Escaneo</h2>
             <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer bg-gray-50 dark:bg-slate-900">
@@ -63,20 +72,41 @@
             </div>
         </div>
 
-        <!-- 2. Datos Detectados -->
         <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
             <h2 class="text-lg font-semibold mb-3">2. Datos Detectados</h2>
             <div class="space-y-3">
-                <input id="form-empresa" type="text" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="Empresa">
+                <input id="form-empresa" type="text" class="w-full p-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm" placeholder="Empresa">
                 <div class="grid grid-cols-2 gap-3">
-                    <input id="form-numero" type="text" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="N° Factura">
-                    <input id="form-monto" type="number" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="Monto">
+                    <input id="form-numero" type="text" class="w-full p-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm" placeholder="N° Factura">
+                    <input id="form-monto" type="number" class="w-full p-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm" placeholder="Monto">
                 </div>
-                <button id="btn-guardar" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-lg font-bold cursor-pointer transition-colors">Guardar Registro</button>
+                
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Asignar a Proyecto:</label>
+                        <button onclick="toggleNuevoProyectoUI()" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer flex items-center gap-0.5">
+                            ➕ Crear Nuevo
+                        </button>
+                    </div>
+                    
+                    <select id="form-proyecto" class="w-full p-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm font-semibold focus:ring-2 focus:ring-indigo-500">
+                        </select>
+
+                    <div id="nuevo-proyecto-container" class="hidden mt-2 p-3 bg-indigo-50 dark:bg-slate-900/50 border border-indigo-100 dark:border-indigo-950/50 rounded-lg transition-all">
+                        <p class="text-[11px] text-indigo-700 dark:text-indigo-300 font-bold mb-1.5 uppercase tracking-wide">Nuevo Proyecto / Obra:</p>
+                        <div class="flex gap-2">
+                            <input id="input-nuevo-proyecto" type="text" class="flex-1 p-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-xs" placeholder="Nombre de la carpeta...">
+                            <button onclick="agregarNuevoProyecto()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-xs font-bold cursor-pointer shrink-0">
+                                Añadir
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <button id="btn-guardar" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-lg font-bold cursor-pointer transition-colors text-sm">Guardar Registro</button>
             </div>
         </div>
 
-        <!-- Panel de Reportes Ajustado en dos columnas con ícono de WhatsApp en SVG -->
         <div id="panel-reportes" class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6 hidden flex gap-3">
             <button onclick="enviarWhatsApp()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-2.64-1.03-5.123-2.902-6.994a9.895 9.895 0 0 0-6.992-2.89c-5.451 0-9.887 4.434-9.89 9.885-.001 2.22.612 4.356 1.777 6.223l-.999 3.648 3.725-.979zm11.215-4.747c-.292-.146-1.729-.853-1.996-.951-.267-.098-.462-.146-.657.146-.195.292-.756.951-.926 1.146-.17.195-.341.219-.633.073-1.124-.51-2.158-1.148-3.003-1.884-.738-.644-1.353-1.41-1.748-2.274-.17-.292-.018-.45.129-.595.132-.131.292-.341.438-.512.146-.17.195-.292.292-.487.098-.195.049-.366-.024-.512-.073-.146-.657-1.583-.9-2.17-.236-.572-.477-.494-.657-.504-.17-.008-.365-.01-.56-.01s-.512.073-.78.366c-.268.292-1.023 1.001-1.023 2.441 0 1.439 1.048 2.83 1.194 3.025.146.195 2.062 3.149 4.996 4.413.698.301 1.243.481 1.668.616.702.223 1.34.192 1.844.117.562-.083 1.729-.707 1.972-1.39.243-.683.243-1.268.17-1.39-.073-.122-.268-.195-.56-.341z"/></svg>
@@ -87,7 +117,12 @@
             </button>
         </div>
 
-        <!-- Lista de facturas -->
+        <div class="mb-4">
+            <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">📁 Filtrar Historial por Proyecto:</label>
+            <div id="filtros-proyectos-container" class="flex gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
+                </div>
+        </div>
+
         <div id="lista-facturas" class="space-y-3"></div>
     </div>
 
@@ -97,15 +132,86 @@
         const formEmpresa = document.getElementById('form-empresa');
         const formNumero = document.getElementById('form-numero');
         const formMonto = document.getElementById('form-monto');
+        const formProyecto = document.getElementById('form-proyecto');
         const btnGuardar = document.getElementById('btn-guardar');
         const listaFacturas = document.getElementById('lista-facturas');
         const contadorPendientes = document.getElementById('contador-pendientes');
         const panelReportes = document.getElementById('panel-reportes');
 
         document.addEventListener('DOMContentLoaded', () => {
+            actualizarSelectProyectos();
+            renderizarFiltros();
             cargarFacturasDesdeSheet();
             verificarEstadoPWA();
         });
+
+        // --- MANEJO DE PROYECTOS DINÁMICOS ---
+        
+        function toggleNuevoProyectoUI() {
+            const container = document.getElementById("nuevo-proyecto-container");
+            container.classList.toggle("hidden");
+            if (!container.classList.contains("hidden")) {
+                document.getElementById("input-nuevo-proyecto").focus();
+            }
+        }
+
+        function agregarNuevoProyecto() {
+            const input = document.getElementById("input-nuevo-proyecto");
+            const nuevoNombre = input.value.trim();
+
+            if (!nuevoNombre) {
+                alert("Por favor, ingresa un nombre para el nuevo proyecto.");
+                return;
+            }
+
+            if (listaProyectos.some(p => p.toLowerCase() === nuevoNombre.toLowerCase())) {
+                alert("Ese proyecto ya existe.");
+                return;
+            }
+
+            listaProyectos.push(nuevoNombre);
+            localStorage.setItem("pwa_proyectos", JSON.stringify(listaProyectos));
+
+            actualizarSelectProyectos();
+            renderizarFiltros();
+
+            formProyecto.value = nuevoNombre;
+            input.value = "";
+            document.getElementById("nuevo-proyecto-container").classList.add("hidden");
+        }
+
+        function actualizarSelectProyectos() {
+            formProyecto.innerHTML = "";
+            listaProyectos.forEach(p => {
+                const opt = document.createElement("option");
+                opt.value = p;
+                opt.textContent = p === "General" ? "General / Gastos Comunes" : p;
+                formProyecto.appendChild(opt);
+            });
+        }
+
+        function renderizarFiltros() {
+            const container = document.getElementById('filtros-proyectos-container');
+            if (!container) return;
+
+            let html = `<button onclick="filtrarHistorial('TODOS')" id="flt-TODOS" class="px-3 py-1.5 rounded-full font-bold ${proyectoFiltroActual === 'TODOS' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300'} cursor-pointer shrink-0">Todos</button>`;
+
+            listaProyectos.forEach(p => {
+                const activo = proyectoFiltroActual === p;
+                const nombreCorto = p.replace("Proyecto ", "");
+                html += `<button onclick="filtrarHistorial('${p}')" id="flt-${p}" class="px-3 py-1.5 rounded-full font-bold ${activo ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300'} cursor-pointer shrink-0">${nombreCorto}</button>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function filtrarHistorial(proyecto) {
+            proyectoFiltroActual = proyecto;
+            renderizarFiltros();
+            renderizarHistorial();
+        }
+
+        // --- CAPTURA E INTELIGENCIA ARTIFICIAL ---
 
         inputFactura.addEventListener('change', async function(e) {
             const archivo = e.target.files[0];
@@ -136,7 +242,7 @@
                         formMonto.value = datosIA.monto || "";
                     } catch (error) {
                         alert("Error IA: " + error.message);
-                    } finally {
+                    } finaly {
                         ocrStatus.classList.add('hidden');
                     }
                 };
@@ -145,35 +251,28 @@
             lector.readAsDataURL(archivo);
         });
 
-        // RESTAURACIÓN COMPLETA DE TU LÓGICA DE DUPLICADOS MAESTRA
+        // --- ACCIONES EN LA PLANILLA ---
+
         btnGuardar.addEventListener('click', async function() {
             const empresa = formEmpresa.value.trim();
             const numero = formNumero.value.trim();
             const monto = formMonto.value.trim();
+            const proyecto = formProyecto.value;
 
             if (!empresa || !monto) {
                 alert("La empresa y el monto son obligatorios.");
                 return;
             }
 
-            // CORRECCIÓN ULTRA-ROBUSTA DE DUPLICADOS:
+            // CONTROL ULTRA-ROBUSTO DE DUPLICADOS EN PRODUCCIÓN
             if (numero && numero !== "" && numero.toUpperCase() !== "S/N") {
-                // Función interna para remover ceros a la izquierda, espacios y caracteres especiales de separación (. , - /)
-                const normalizar = (val) => {
-                    if (val === undefined || val === null) return "";
-                    return String(val).replace(/[\s\.\-\,\/]/g, '').replace(/^0+/, '').trim();
-                };
-
+                const normalizar = (val) => String(val).replace(/[\s\.\-\,\/]/g, '').replace(/^0+/, '').trim();
                 const numeroNuevoNormalizado = normalizar(numero);
                 
-                const facturaDuplicada = facturasGlobales.find(f => {
-                    if (!f.numero) return false;
-                    const numeroExistenteNormalizado = normalizar(f.numero);
-                    return numeroExistenteNormalizado === numeroNuevoNormalizado;
-                });
+                const facturaDuplicada = facturasGlobales.find(f => f.numero && normalizar(f.numero) === numeroNuevoNormalizado);
 
                 if (facturaDuplicada) {
-                    alert(`La factura N° ${numero} ya fue registrada previamente para "${facturaDuplicada.empresa}" (Estado: ${facturaDuplicada.estado}).`);
+                    alert(`⚠️ DUPLICADO DETECTADO:\nLa factura N° ${numero} ya existe en el sistema bajo el proyecto: "${facturaDuplicada.proyecto || 'General'}" (Estado: ${facturaDuplicada.estado}).`);
                     return;
                 }
             }
@@ -185,7 +284,7 @@
                 const respuesta = await fetch(WEB_APP_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: "add", empresa, numero, monto })
+                    body: JSON.stringify({ action: "add", empresa, numero, monto, proyecto })
                 });
                 const res = await respuesta.json();
                 if (res.status === "ok") {
@@ -198,7 +297,7 @@
                 }
             } catch (error) {
                 alert("Error de red: " + error.message);
-            } finally {
+            } finaly {
                 btnGuardar.disabled = false;
                 btnGuardar.innerText = "Guardar Registro";
             }
@@ -208,62 +307,69 @@
             try {
                 const response = await fetch(WEB_APP_URL);
                 const datos = await response.json();
-                facturasGlobales = datos; // Guardar copia local en memoria para validación de duplicados y reportes
-                
-                listaFacturas.innerHTML = "";
-                let pendientes = 0;
+                facturasGlobales = datos;
+                renderizarHistorial();
+            } catch (e) { listaFacturas.innerText = "Error cargando datos de la planilla."; }
+        }
 
-                datos.forEach(f => {
-                    if (f.estado === "Pendiente") pendientes++;
-                    
-                    // Cálculo de días transcurridos
-                    let infoFecha = "Fecha no disponible";
-                    if (f.fecha) {
-                        const fObj = new Date(f.fecha);
-                        if (!isNaN(fObj.getTime())) {
-                            const opciones = { day: '2-digit', month: '2-digit', year: 'numeric' };
-                            const fechaString = fObj.toLocaleDateString('es-CL', opciones);
-                            
-                            if (f.estado === "Pendiente") {
-                                const hoy = new Date();
-                                const diferenciaSg = hoy.getTime() - fObj.getTime();
-                                const dias = Math.floor(diferenciaSg / (1000 * 60 * 60 * 24));
-                                infoFecha = `${fechaString} (${dias === 0 ? 'Hoy' : 'Hace ' + dias + ' días'})`;
-                            } else {
-                                infoFecha = `${fechaString}`;
-                            }
+        function renderizarHistorial() {
+            listaFacturas.innerHTML = "";
+            let pendientesTotales = 0;
+
+            const datosFiltrados = facturasGlobales.filter(f => {
+                if (f.estado === "Pendiente") pendientesTotales++;
+                return proyectoFiltroActual === "TODOS" || f.proyecto === proyectoFiltroActual;
+            });
+
+            const coloresBordes = {
+                "General": "border-l-gray-400",
+                "Proyecto Alfa": "border-l-orange-500",
+                "Proyecto Beta": "border-l-purple-500",
+                "Mantenimiento Red": "border-l-blue-500"
+            };
+
+            datosFiltrados.forEach(f => {
+                let infoFecha = "Fecha no disponible";
+                if (f.fecha) {
+                    const fObj = new Date(f.fecha);
+                    if (!isNaN(fObj.getTime())) {
+                        const fechaString = fObj.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                        if (f.estado === "Pendiente") {
+                            const dias = Math.floor((new Date().getTime() - fObj.getTime()) / (1000 * 60 * 60 * 24));
+                            infoFecha = `${fechaString} (${dias === 0 ? 'Hoy' : 'Hace ' + dias + ' días'})`;
+                        } else {
+                            infoFecha = `${fechaString}`;
                         }
                     }
-
-                    listaFacturas.innerHTML += `
-                        <div class="p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 flex justify-between items-center shadow-sm">
-                            <div>
-                                <p class="font-bold text-gray-900 dark:text-white">${f.empresa}</p>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">N° ${f.numero || 'S/N'} • $${Number(f.monto).toLocaleString('es-CL')}</p>
-                                <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 font-mono">Rendida: ${infoFecha}</p>
-                                <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded ${f.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400'}">${f.estado}</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                ${f.estado === "Pendiente" ? `<button onclick="marcarComoPagada('${f.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer">PAGADA</button>` : ''}
-                                <button onclick="eliminarRegistro('${f.id}')" class="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer" title="Eliminar">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                    </svg>
-                                </button>
-                            </div>
-                        </div>`;
-                });
-
-                contadorPendientes.innerText = pendientes + " Pendientes";
-                
-                // Mostrar u ocultar panel de reportes según haya pendientes
-                if (pendientes > 0) {
-                    panelReportes.classList.remove('hidden');
-                } else {
-                    panelReportes.classList.add('hidden');
                 }
 
-            } catch (e) { listaFacturas.innerText = "Error cargando datos."; }
+                const colorClase = coloresBordes[f.proyecto] || "border-l-blue-500";
+
+                listaFacturas.innerHTML += `
+                    <div class="p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 flex justify-between items-center shadow-sm border-l-4 ${colorClase}">
+                        <div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 font-bold rounded bg-slate-100 dark:bg-slate-900 text-gray-600 dark:text-gray-400">${f.proyecto || 'General'}</span>
+                            </div>
+                            <p class="font-bold text-gray-900 dark:text-white mt-1">${f.empresa}</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">N° ${f.numero || 'S/N'} • $${Number(f.monto).toLocaleString('es-CL')}</p>
+                            <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 font-mono">Rendida: ${infoFecha}</p>
+                            <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded ${f.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400'}">${f.estado}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            ${f.estado === "Pendiente" ? `<button onclick="marcarComoPagada('${f.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer">PAGADA</button>` : ''}
+                            <button onclick="eliminarRegistro('${f.id}')" class="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer" title="Eliminar">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>`;
+            });
+
+            contadorPendientes.innerText = pendientesTotales + " Pendientes";
+            if (pendientesTotales > 0) panelReportes.classList.remove('hidden');
+            else panelReportes.classList.add('hidden');
         }
 
         async function marcarComoPagada(id) {
@@ -284,30 +390,42 @@
                     body: JSON.stringify({ action: "delete", id: id })
                 });
                 cargarFacturasDesdeSheet();
-            } catch (e) {
-                alert("Error al eliminar.");
-            }
+            } catch (e) { alert("Error al eliminar."); }
         }
 
-        // Construcción de reporte estructurado original en español
+        // --- REPORTES AGRUPADOS POR PROYECTO ---
+
         function construirTextoReporte() {
             const pendientes = facturasGlobales.filter(f => f.estado === "Pendiente");
             if (pendientes.length === 0) return "";
 
-            let texto = "📋 *Facturas Rendidas y no liquidadas*\n";
-            texto += "===============================\n\n";
-            
-            let total = 0;
-            pendientes.forEach((f, i) => {
-                const montoNum = Number(f.monto || 0);
-                total += montoNum;
-                texto += `*${i + 1}. ${f.empresa}*\n`;
-                texto += `🔹 *N° Factura:* ${f.numero || 'S/N'}\n`;
-                texto += `💰 *Monto:* $${montoNum.toLocaleString('es-CL')}\n`;
-                texto += "-----------------------------------\n";
+            const proyectosMap = {};
+            pendientes.forEach(f => {
+                const proj = f.proyecto || "General";
+                if (!proyectosMap[proj]) proyectosMap[proj] = [];
+                proyectosMap[proj].push(f);
             });
+
+            let texto = "📋 *REPORTE DE RENDICIONES POR PROYECTO*\n";
+            texto += "===================================\n\n";
+            let granTotal = 0;
+
+            for (const proj in proyectosMap) {
+                texto += `📁 *PROYECTO: ${proj.toUpperCase()}*\n`;
+                let subTotalProyecto = 0;
+
+                proyectosMap[proj].forEach((f, i) => {
+                    const montoNum = Number(f.monto || 0);
+                    subTotalProyecto += montoNum;
+                    granTotal += montoNum;
+                    texto += `  ${i + 1}. ${f.empresa} (N° ${f.numero || 'S/N'}) -> *$${montoNum.toLocaleString('es-CL')}*\n`;
+                });
+
+                texto += `🔹 *Subtotal ${proj}:* $${subTotalProyecto.toLocaleString('es-CL')}\n`;
+                texto += "-----------------------------------\n\n";
+            }
             
-            texto += `\n💵 *TOTAL PENDIENTE:* $${total.toLocaleString('es-CL')}`;
+            texto += `\n💵 *TOTAL GLOBAL PENDIENTE:* $${granTotal.toLocaleString('es-CL')}`;
             return texto;
         }
 
@@ -322,35 +440,25 @@
             if (!msg) return alert("No hay registros pendientes.");
             try {
                 await navigator.clipboard.writeText(msg);
-                alert("Reporte estructurado copiado al portapapeles con éxito.");
-            } catch (err) {
-                alert("No se pudo copiar automáticamente.");
-            }
+                alert("Reporte por Proyectos copiado perfectamente.");
+            } catch (err) { alert("No se pudo copiar."); }
         }
 
         document.getElementById('btn-theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
 
-
-        // ==========================================
-        // LÓGICA DE CONTROL DEL BANNER DE INSTALACIÓN
-        // ==========================================
+        // --- SISTEMA NATIVO DE INSTALACIÓN PWA ---
         
-        // Verifica si la aplicación se está ejecutando instalada (Modo standalone)
         function verificarEstadoPWA() {
             const esStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
             if (esStandalone) {
-                // Si ya está ejecutándose como aplicación instalada, nos aseguramos de que jamás se vea el banner
                 const banner = document.getElementById('banner-instalar');
                 if (banner) banner.classList.add('hidden');
             }
         }
 
-        // Captura el evento de instalación nativo
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
-            deferredPrompt = e; // Guardamos el evento para dispararlo manualmente
-
-            // Mostrar el banner solo si no está ya instalada y en ejecución standalone
+            deferredPrompt = e;
             const esStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
             const bannerCancelado = localStorage.getItem('banner_instalacion_cancelado') === 'true';
 
@@ -360,34 +468,26 @@
             }
         });
 
-        // Lanza la instalación nativa oficial al presionar el botón
         async function dispararInstalacionNativa() {
             if (!deferredPrompt) return;
             deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log(`Resultado de instalación: ${outcome}`);
-            
+            await deferredPrompt.userChoice;
             deferredPrompt = null;
-            // Ocultar banner inmediatamente tras la acción
             const banner = document.getElementById('banner-instalar');
             if (banner) banner.classList.add('hidden');
         }
 
-        // Cierra manualmente el banner y recuerda la preferencia en localStorage
         function cerrarBannerInstalar() {
             const banner = document.getElementById('banner-instalar');
             if (banner) banner.classList.add('hidden');
             localStorage.setItem('banner_instalacion_cancelado', 'true');
         }
 
-        // Escucha si la app se instala con éxito para quitar el banner
         window.addEventListener('appinstalled', () => {
-            console.log('¡PWA Instalada exitosamente!');
             const banner = document.getElementById('banner-instalar');
             if (banner) banner.classList.add('hidden');
         });
 
-        // Registro del Service Worker
         if ('serviceWorker' in navigator) {
             const esEntornoProduccion = window.location.protocol.startsWith('http') && 
                                         !window.location.hostname.includes('goog') && 
@@ -398,7 +498,7 @@
                 window.addEventListener('load', () => {
                     navigator.serviceWorker.register('./sw.js')
                         .then(reg => console.log('Service Worker cargado.', reg))
-                        .catch(err => console.error('Error registrando Service Worker', err));
+                        .catch(err => console.error('Error registrando SW', err));
                 });
             }
         }
