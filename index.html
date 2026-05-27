@@ -11,11 +11,20 @@
 <body class="bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 font-sans antialiased pb-24 transition-colors duration-200">
 
     <script>
-        // Conserva tu URL exacta de Apps Script
+        // Conserva tu URL exacta de Apps Script de Producción
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyOWjVhRSvJODa_IsdUijTvBAKvedgEWjbzS8yNPCRp6ymO-Jq1o0uQXRFPhwu3j9Attg/exec";
-        // Almacenamiento local para generar reportes y validar duplicados en tiempo real
+        
         let facturasGlobales = [];
         let deferredPrompt = null; // Almacena el evento de instalación nativo
+        let proyectoFiltroActual = "TODOS";
+
+        // Cargar listado de proyectos desde la memoria local o iniciar con los predeterminados
+        let listaProyectos = ["General", "Proyecto Alfa", "Proyecto Beta", "Mantenimiento Red"];
+        if (localStorage.getItem("pwa_proyectos")) {
+            listaProyectos = JSON.parse(localStorage.getItem("pwa_proyectos"));
+        } else {
+            localStorage.setItem("pwa_proyectos", JSON.stringify(listaProyectos));
+        }
     </script>
 
     <div id="banner-instalar" class="hidden bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 shadow-md sticky top-0 z-50 transition-all duration-300">
@@ -68,8 +77,29 @@
                     <input id="form-numero" type="text" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="N° Factura">
                     <input id="form-monto" type="number" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="Monto">
                 </div>
-                <input id="form-proyecto" type="text" class="w-full p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg" placeholder="Proyecto (ej: General, Casa, Obra)">
                 
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Asignar a Proyecto:</label>
+                        <button onclick="toggleNuevoProyectoUI()" class="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer flex items-center gap-0.5">
+                            ➕ Crear Nuevo
+                        </button>
+                    </div>
+                    
+                    <select id="form-proyecto" class="w-full p-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm font-semibold focus:ring-2 focus:ring-blue-500">
+                        </select>
+
+                    <div id="nuevo-proyecto-container" class="hidden mt-2 p-3 bg-blue-50 dark:bg-slate-900/50 border border-blue-100 dark:border-blue-950/50 rounded-lg transition-all">
+                        <p class="text-[11px] text-blue-700 dark:text-blue-300 font-bold mb-1.5 uppercase tracking-wide">Nuevo Proyecto / Obra:</p>
+                        <div class="flex gap-2">
+                            <input id="input-nuevo-proyecto" type="text" class="flex-1 p-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-xs" placeholder="Nombre de la obra/carpeta...">
+                            <button onclick="agregarNuevoProyecto()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-xs font-bold cursor-pointer shrink-0">
+                                Añadir
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <button id="btn-guardar" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-lg font-bold cursor-pointer transition-colors">Guardar Registro</button>
             </div>
         </div>
@@ -84,15 +114,10 @@
             </button>
         </div>
 
-        <div id="seccion-filtro" class="hidden bg-white dark:bg-slate-800 p-3 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-4 flex items-center gap-2">
-            <select id="filtro-proyecto" class="flex-1 p-2 bg-gray-50 dark:bg-slate-900 border rounded-lg text-sm cursor-pointer font-medium">
-                <option value="">Todos los Proyectos</option>
-            </select>
-            <button id="btn-limpiar-filtro" class="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer" title="Limpiar Filtro (Ver todos)">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                </svg>
-            </button>
+        <div class="mb-4">
+            <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">📁 Filtrar Historial por Proyecto:</label>
+            <div id="filtros-proyectos-container" class="flex gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
+                </div>
         </div>
 
         <div id="lista-facturas" class="space-y-3"></div>
@@ -105,25 +130,85 @@
         const formNumero = document.getElementById('form-numero');
         const formMonto = document.getElementById('form-monto');
         const formProyecto = document.getElementById('form-proyecto');
-        const filtroProyecto = document.getElementById('filtro-proyecto');
-        const btnLimpiarFiltro = document.getElementById('btn-limpiar-filtro');
         const btnGuardar = document.getElementById('btn-guardar');
         const listaFacturas = document.getElementById('lista-facturas');
         const contadorPendientes = document.getElementById('contador-pendientes');
         const panelReportes = document.getElementById('panel-reportes');
 
         document.addEventListener('DOMContentLoaded', () => {
+            actualizarSelectProyectos();
+            renderizarFiltros();
             cargarFacturasDesdeSheet();
             verificarEstadoPWA();
-
-            // Eventos del Filtro Maestro
-            filtroProyecto.addEventListener('change', renderizarLista);
-            btnLimpiarFiltro.addEventListener('click', () => {
-                filtroProyecto.value = "";
-                renderizarLista();
-            });
         });
 
+        // --- SISTEMA DINÁMICO DE CREACIÓN DE PROYECTOS ---
+        function toggleNuevoProyectoUI() {
+            const container = document.getElementById("nuevo-proyecto-container");
+            container.classList.toggle("hidden");
+            if (!container.classList.contains("hidden")) {
+                document.getElementById("input-nuevo-proyecto").focus();
+            }
+        }
+
+        function agregarNuevoProyecto() {
+            const input = document.getElementById("input-nuevo-proyecto");
+            const nuevoNombre = input.value.trim();
+
+            if (!nuevoNombre) {
+                alert("Por favor, ingresa un nombre para el nuevo proyecto.");
+                return;
+            }
+
+            if (listaProyectos.some(p => p.toLowerCase() === nuevoNombre.toLowerCase())) {
+                alert("Ese proyecto o carpeta ya existe.");
+                return;
+            }
+
+            listaProyectos.push(nuevoNombre);
+            localStorage.setItem("pwa_proyectos", JSON.stringify(listaProyectos));
+
+            actualizarSelectProyectos();
+            renderizarFiltros();
+
+            formProyecto.value = nuevoNombre;
+            input.value = "";
+            document.getElementById("nuevo-proyecto-container").classList.add("hidden");
+        }
+
+        function actualizarSelectProyectos() {
+            formProyecto.innerHTML = "";
+            listaProyectos.forEach(p => {
+                const opt = document.createElement("option");
+                opt.value = p;
+                opt.textContent = p === "General" ? "General / Gastos Comunes" : p;
+                formProyecto.appendChild(opt);
+            });
+        }
+
+        function renderizarFiltros() {
+            const container = document.getElementById('filtros-proyectos-container');
+            if (!container) return;
+
+            let html = `<button onclick="filtrarHistorial('TODOS')" id="flt-TODOS" class="px-3 py-1.5 rounded-full font-bold ${proyectoFiltroActual === 'TODOS' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300'} cursor-pointer shrink-0">Todos</button>`;
+
+            listaProyectos.forEach(p => {
+                const activo = proyectoFiltroActual === p;
+                const nombreCorto = p.replace("Proyecto ", "");
+                
+                html += `<button onclick="filtrarHistorial('${p}')" id="flt-${p}" class="px-3 py-1.5 rounded-full font-bold ${activo ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300'} cursor-pointer shrink-0">${nombreCorto}</button>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function filtrarHistorial(proyecto) {
+            proyectoFiltroActual = proyecto;
+            renderizarFiltros();
+            renderizarHistorialLocal();
+        }
+
+        // --- PROCESAMIENTO OCR ---
         inputFactura.addEventListener('change', async function(e) {
             const archivo = e.target.files[0];
             if (!archivo) return;
@@ -162,11 +247,12 @@
             lector.readAsDataURL(archivo);
         });
 
+        // --- GUARDADO DE REGISTRO CON VERIFICACIÓN MAESTRA ---
         btnGuardar.addEventListener('click', async function() {
             const empresa = formEmpresa.value.trim();
             const numero = formNumero.value.trim();
             const monto = formMonto.value.trim();
-            const proyecto = formProyecto.value.trim() || "General"; // Por defecto si se deja vacío
+            const proyecto = formProyecto.value;
 
             if (!empresa || !monto) {
                 alert("La empresa y el monto son obligatorios.");
@@ -183,12 +269,11 @@
                 
                 const facturaDuplicada = facturasGlobales.find(f => {
                     if (!f.numero) return false;
-                    const numeroExistenteNormalizado = normalizar(f.numero);
-                    return numeroExistenteNormalizado === numeroNuevoNormalizado;
+                    return normalizar(f.numero) === numeroNuevoNormalizado;
                 });
 
                 if (facturaDuplicada) {
-                    alert(`La factura N° ${numero} ya fue registrada previamente para "${facturaDuplicada.empresa}" (Estado: ${facturaDuplicada.estado}).`);
+                    alert(`La factura N° ${numero} ya fue registrada previamente para "${facturaDuplicada.empresa}" bajo el proyecto: "${facturaDuplicada.proyecto || 'General'}" (Estado: ${facturaDuplicada.estado}).`);
                     return;
                 }
             }
@@ -207,7 +292,6 @@
                     formEmpresa.value = "";
                     formNumero.value = "";
                     formMonto.value = "";
-                    formProyecto.value = "";
                     await cargarFacturasDesdeSheet();
                 } else {
                     alert("Error al guardar en la planilla.");
@@ -224,54 +308,28 @@
             try {
                 const response = await fetch(WEB_APP_URL);
                 const datos = await response.json();
-                facturasGlobales = datos; 
-                
-                actualizarOpcionesFiltro(datos);
-                renderizarLista();
-
+                facturasGlobales = datos;
+                renderizarHistorialLocal();
             } catch (e) { listaFacturas.innerText = "Error cargando datos."; }
         }
 
-        // Actualiza el listado del desplegable manteniendo proyectos únicos activos
-        function actualizarOpcionesFiltro(datos) {
-            const valorActual = filtroProyecto.value;
-            
-            // Obtener proyectos únicos ordenados, omitiendo vacíos
-            const proyectosUnicos = [...new Set(datos.map(f => f.proyecto || "General"))].filter(Boolean);
-            
-            filtroProyecto.innerHTML = '<option value="">Todos los Proyectos</option>';
-            proyectosUnicos.forEach(p => {
-                filtroProyecto.innerHTML += `<option value="${p}">${p}</option>`;
+        function renderizarHistorialLocal() {
+            listaFacturas.innerHTML = "";
+            let pendientesTotales = 0;
+
+            const datosFiltrados = facturasGlobales.filter(f => {
+                if (f.estado === "Pendiente") pendientesTotales++;
+                return proyectoFiltroActual === "TODOS" || f.proyecto === proyectoFiltroActual;
             });
 
-            if (proyectosUnicos.includes(valorActual)) {
-                filtroProyecto.value = valorActual;
-            } else {
-                filtroProyecto.value = "";
-            }
+            const coloresBordes = {
+                "General": "border-l-gray-400",
+                "Proyecto Alfa": "border-l-orange-500",
+                "Proyecto Beta": "border-l-purple-500",
+                "Mantenimiento Red": "border-l-blue-500"
+            };
 
-            const seccionFiltro = document.getElementById('seccion-filtro');
-            if (datos.length > 0) {
-                seccionFiltro.classList.remove('hidden');
-            } else {
-                seccionFiltro.classList.add('hidden');
-            }
-        }
-
-        // Dibuja la lista aplicando filtros y recálculos automáticos en local
-        function renderizarLista() {
-            const proyectoSeleccionado = filtroProyecto.value;
-            listaFacturas.innerHTML = "";
-            let pendientes = 0;
-
-            facturasGlobales.forEach(f => {
-                const projFactura = f.proyecto || "General";
-                
-                // Aplicar el filtro si está seleccionado
-                if (proyectoSeleccionado && projFactura !== proyectoSeleccionado) return;
-
-                if (f.estado === "Pendiente") pendientes++;
-                
+            datosFiltrados.forEach(f => {
                 let infoFecha = "Fecha no disponible";
                 if (f.fecha) {
                     const fObj = new Date(f.fecha);
@@ -290,12 +348,17 @@
                     }
                 }
 
+                const colorClase = coloresBordes[f.proyecto] || "border-l-blue-500";
+
                 listaFacturas.innerHTML += `
-                    <div class="p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 flex justify-between items-center shadow-sm">
+                    <div class="p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 flex justify-between items-center shadow-sm border-l-4 ${colorClase}">
                         <div>
-                            <p class="font-bold text-gray-900 dark:text-white">${f.empresa}</p>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 font-bold rounded bg-gray-100 dark:bg-slate-900 text-gray-600 dark:text-gray-400">${f.proyecto || 'General'}</span>
+                            </div>
+                            <p class="font-bold text-gray-900 dark:text-white mt-1">${f.empresa}</p>
                             <p class="text-sm text-gray-500 dark:text-gray-400">N° ${f.numero || 'S/N'} • $${Number(f.monto).toLocaleString('es-CL')}</p>
-                            <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 font-mono">Proyecto: ${projFactura} • Rendida: ${infoFecha}</p>
+                            <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 font-mono">Rendida: ${infoFecha}</p>
                             <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded ${f.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400'}">${f.estado}</span>
                         </div>
                         <div class="flex items-center gap-2">
@@ -309,13 +372,10 @@
                     </div>`;
             });
 
-            contadorPendientes.innerText = pendientes + " Pendientes";
+            contadorPendientes.innerText = pendientesTotales + " Pendientes";
             
-            if (pendientes > 0) {
-                panelReportes.classList.remove('hidden');
-            } else {
-                panelReportes.classList.add('hidden');
-            }
+            if (pendientesTotales > 0) panelReportes.classList.remove('hidden');
+            else panelReportes.classList.add('hidden');
         }
 
         async function marcarComoPagada(id) {
@@ -336,45 +396,48 @@
                     body: JSON.stringify({ action: "delete", id: id })
                 });
                 cargarFacturasDesdeSheet();
-            } catch (e) {
-                alert("Error al eliminar.");
-            }
+            } catch (e) { alert("Error al eliminar."); }
         }
 
+        // --- REPORTES AGRUPADOS POR PROYECTO MAESTRO ---
         function construirTextoReporte() {
-            const proyectoSeleccionado = filtroProyecto.value;
-            let pendientes = facturasGlobales.filter(f => f.estado === "Pendiente");
-            
-            // Si hay un proyecto seleccionado, el reporte de WhatsApp sólo incluirá ese proyecto
-            if (proyectoSeleccionado) {
-                pendientes = pendientes.filter(f => (f.proyecto || "General") === proyectoSeleccionado);
-            }
-
+            const pendientes = facturasGlobales.filter(f => f.estado === "Pendiente");
             if (pendientes.length === 0) return "";
 
-            let texto = "📋 *Facturas Rendidas y no liquidadas*\n";
-            if (proyectoSeleccionado) {
-                texto += `📁 *Proyecto:* ${proyectoSeleccionado}\n`;
-            }
-            texto += "===============================\n\n";
-            
-            let total = 0;
-            pendientes.forEach((f, i) => {
-                const montoNum = Number(f.monto || 0);
-                total += montoNum;
-                texto += `*${i + 1}. ${f.empresa}*\n`;
-                texto += `🔹 *N° Factura:* ${f.numero || 'S/N'}\n`;
-                texto += `💰 *Monto:* $${montoNum.toLocaleString('es-CL')}\n`;
-                texto += "-----------------------------------\n";
+            const proyectosMap = {};
+            pendientes.forEach(f => {
+                const proj = f.proyecto || "General";
+                if (!proyectosMap[proj]) proyectosMap[proj] = [];
+                proyectosMap[proj].push(f);
             });
+
+            let texto = "📋 *REPORTE DE RENDICIONES POR PROYECTO*\n";
+            texto += "===================================\n\n";
             
-            texto += `\n💵 *TOTAL PENDIENTE:* $${total.toLocaleString('es-CL')}`;
+            let granTotal = 0;
+
+            for (const proj in proyectosMap) {
+                texto += `📁 *PROYECTO: ${proj.toUpperCase()}*\n`;
+                let subTotalProyecto = 0;
+
+                proyectosMap[proj].forEach((f, i) => {
+                    const montoNum = Number(f.monto || 0);
+                    subTotalProyecto += montoNum;
+                    granTotal += montoNum;
+                    texto += `  ${i + 1}. ${f.empresa} (N° ${f.numero || 'S/N'}) -> *$${montoNum.toLocaleString('es-CL')}*\n`;
+                });
+
+                texto += `🔹 *Subtotal ${proj}:* $${subTotalProyecto.toLocaleString('es-CL')}\n`;
+                texto += "-----------------------------------\n\n";
+            }
+            
+            texto += `\n💵 *TOTAL GLOBAL PENDIENTE:* $${granTotal.toLocaleString('es-CL')}`;
             return texto;
         }
 
         function enviarWhatsApp() {
             const msg = construirTextoReporte();
-            if (!msg) return alert("No hay registros pendientes para enviar en este filtro.");
+            if (!msg) return alert("No hay registros pendientes para enviar.");
             window.location.href = `whatsapp://send?text=${encodeURIComponent(msg)}`;
         }
 
@@ -383,14 +446,13 @@
             if (!msg) return alert("No hay registros pendientes.");
             try {
                 await navigator.clipboard.writeText(msg);
-                alert("Reporte estructurado copiado al portapapeles con éxito.");
-            } catch (err) {
-                alert("No se pudo copiar automáticamente.");
-            }
+                alert("Reporte por Proyectos copiado perfectamente.");
+            } catch (err) { alert("No se pudo copiar."); }
         }
 
         document.getElementById('btn-theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
 
+        // --- CONTROL NATIVO PWA BANNER ---
         function verificarEstadoPWA() {
             const esStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
             if (esStandalone) {
@@ -415,9 +477,7 @@
         async function dispararInstalacionNativa() {
             if (!deferredPrompt) return;
             deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log(`Resultado de instalación: ${outcome}`);
-            
+            await deferredPrompt.userChoice;
             deferredPrompt = null;
             const banner = document.getElementById('banner-instalar');
             if (banner) banner.classList.add('hidden');
@@ -430,7 +490,6 @@
         }
 
         window.addEventListener('appinstalled', () => {
-            console.log('¡PWA Instalada exitosamente!');
             const banner = document.getElementById('banner-instalar');
             if (banner) banner.classList.add('hidden');
         });
