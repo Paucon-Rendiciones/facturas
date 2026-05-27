@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control de Facturas</title>
-    <link rel="manifest" href="manifest.json">
+    <link class="manifest-link" rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1e293b">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
@@ -14,7 +14,24 @@
         // Conserva tu URL exacta de Apps Script
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyOWjVhRSvJODa_IsdUijTvBAKvedgEWjbzS8yNPCRp6ymO-Jq1o0uQXRFPhwu3j9Attg/exec";
         let facturasGlobales = [];
+        let deferredPrompt = null; // Guardará el evento de instalación para cuando el usuario presione el botón
     </script>
+
+    <!-- BANNER DE INSTALACIÓN PWA (Oculto por defecto, se muestra solo cuando es compatible) -->
+    <div id="banner-instalar" class="hidden bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 shadow-md sticky top-0 z-50 transition-all duration-300">
+        <div class="max-w-md mx-auto flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <span class="text-xl">📲</span>
+                <div>
+                    <p class="font-bold text-xs leading-tight">Instalar Rendiciones</p>
+                    <p class="text-[10px] text-emerald-100 leading-tight">Úsala sin bordes de navegador como una App real</p>
+                </div>
+            </div>
+            <button onclick="dispararInstalacionNativa()" class="bg-white hover:bg-emerald-50 text-emerald-700 font-extrabold text-xs px-3.5 py-2 rounded-xl shadow transition-all cursor-pointer shrink-0">
+                Instalar Ahora
+            </button>
+        </div>
+    </div>
 
     <div class="max-w-md mx-auto p-4">
         <!-- Cabecera de la App -->
@@ -66,18 +83,16 @@
         <!-- Lista de facturas -->
         <div id="lista-facturas" class="space-y-3 mb-8"></div>
 
-        <!-- ========================================== -->
-        <!-- NUEVO: PANEL DE DIAGNÓSTICO PWA EN TIEMPO REAL -->
-        <!-- ========================================== -->
+        <!-- Panel de diagnóstico (Consola) -->
         <div class="bg-slate-900 border-2 border-amber-500/40 p-4 rounded-2xl shadow-lg mt-8 text-slate-100">
             <div class="flex justify-between items-center mb-3">
                 <h3 class="text-sm font-bold text-amber-400 flex items-center gap-1">
                     🔍 Consola de Diagnóstico PWA
                 </h3>
-                <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded font-mono text-slate-400">v1.2</span>
+                <span class="text-[10px] bg-slate-800 px-2 py-0.5 rounded font-mono text-slate-400">v1.3</span>
             </div>
             <p class="text-[11px] text-slate-300 mb-4 leading-relaxed">
-                Esta consola verifica los requisitos que Google Chrome exige para activar el botón de instalación en tu celular. Revisa cuáles están en rojo.
+                Esta consola verifica los requisitos que los navegadores exigen para habilitar la instalación nativa.
             </p>
 
             <div class="space-y-3 text-xs font-mono" id="contenedor-diagnostico">
@@ -129,15 +144,15 @@
                 <!-- Prueba 6: Evento de Instalación -->
                 <div class="flex justify-between items-start pb-1">
                     <div>
-                        <p class="font-semibold text-slate-200">6. Compatibilidad Chrome</p>
-                        <span id="p6-desc" class="text-[10px] text-slate-400">Esperando señal de instalación de Android...</span>
+                        <p class="font-semibold text-slate-200">6. Estado de Instalabilidad</p>
+                        <span id="p6-desc" class="text-[10px] text-slate-400">Esperando señal de compatibilidad...</span>
                     </div>
                     <span id="p6-status" class="text-base">⏳</span>
                 </div>
             </div>
 
             <button onclick="ejecutarPruebasDiag()" class="mt-4 w-full bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 text-xs font-bold py-2 rounded-xl transition-all cursor-pointer">
-                🔄 Volver a pasar pruebas
+                🔄 Forzar diagnóstico manual
             </button>
         </div>
     </div>
@@ -266,8 +281,61 @@
         document.getElementById('btn-theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
 
 
+        // ========================================================
+        // CAPTURA INTELIGENTE DEL EVENTO DE INSTALACIÓN (PROMPT)
+        // ========================================================
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Evitar que Brave o Chrome muestren su propio aviso automático molesto
+            e.preventDefault();
+            // Guardar el evento para dispararlo cuando presionen el botón
+            deferredPrompt = e;
+
+            // Mostrar el hermoso banner de instalación en la cabecera
+            const banner = document.getElementById('banner-instalar');
+            if (banner) {
+                banner.classList.remove('hidden');
+            }
+
+            // Actualizar consola de diagnóstico a 100% verde
+            const p6Status = document.getElementById('p6-status');
+            const p6Desc = document.getElementById('p6-desc');
+            if (p6Status && p6Desc) {
+                p6Status.innerText = "🟢";
+                p6Desc.innerText = "¡Compatible! App autorizada para instalarse de forma manual presionando 'Instalar Ahora'.";
+            }
+        });
+
+        // Ejecuta la ventana emergente nativa tras hacer clic en nuestro banner
+        async function dispararInstalacionNativa() {
+            if (!deferredPrompt) return;
+
+            // Mostrar el prompt nativo
+            deferredPrompt.prompt();
+
+            // Esperar a que el usuario responda
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`Respuesta del usuario: ${outcome}`);
+
+            // Limpiar la variable y ocultar el banner
+            deferredPrompt = null;
+            const banner = document.getElementById('banner-instalar');
+            if (banner) {
+                banner.classList.add('hidden');
+            }
+        }
+
+        // Monitorea si el usuario completó la instalación
+        window.addEventListener('appinstalled', (evt) => {
+            console.log('Aplicación instalada con éxito.');
+            const banner = document.getElementById('banner-instalar');
+            if (banner) {
+                banner.classList.add('hidden');
+            }
+        });
+
+
         // ==========================================
-        // NUEVO: MOTOR DE PRUEBAS DE DIAGNÓSTICO PWA
+        // MOTOR DE PRUEBAS DE DIAGNÓSTICO PWA
         // ==========================================
         async function ejecutarPruebasDiag() {
             console.log("Iniciando suite de pruebas PWA...");
@@ -291,9 +359,7 @@
             
             let manifestJson = null;
             try {
-                // Buscamos el manifest relativo al archivo index.html para evitar fallas de rutas
-                const rutaManifest = "./manifest.json";
-                const response = await fetch(rutaManifest);
+                const response = await fetch("./manifest.json");
                 if (response.ok) {
                     manifestJson = await response.json();
                     p2Status.innerText = "🟢";
@@ -316,7 +382,6 @@
                 if (!manifestJson.icons || manifestJson.icons.length === 0) {
                     erroresManifest.push("No tiene iconos declarados");
                 } else {
-                    // Verificar que contenga al menos un tamaño obligatorio (192 o 512)
                     const tamaños = manifestJson.icons.map(i => i.sizes);
                     if (!tamaños.includes("192x192") && !tamaños.includes("512x512")) {
                         erroresManifest.push("Falta icono 192x192 o 512x512");
@@ -363,8 +428,6 @@
                         const reg = await navigator.serviceWorker.register('./sw.js');
                         p5Status.innerText = "🟢";
                         p5Desc.innerText = "Service Worker registrado con éxito en el navegador.";
-                        
-                        // Escuchar cambios de estado para ver si se activa
                         if (reg.active) {
                             p5Desc.innerText += " (Estado: ACTIVO)";
                         } else {
@@ -383,21 +446,17 @@
                 p5Desc.innerText = "Navegador obsoleto. No soporta Service Workers.";
             }
 
-            // --- PRUEBA 6: Señal nativa de Android/Chrome ---
+            // --- PRUEBA 6: Señal de compatibilidad ---
             const p6Status = document.getElementById('p6-status');
             const p6Desc = document.getElementById('p6-desc');
-            p6Status.innerText = "⏳";
-            p6Desc.innerText = "Esperando que Google Chrome dispare el evento install...";
+            if (deferredPrompt) {
+                p6Status.innerText = "🟢";
+                p6Desc.innerText = "¡Compatible! Banner activo. Presiona 'Instalar Ahora' arriba.";
+            } else {
+                p6Status.innerText = "⏳";
+                p6Desc.innerText = "Esperando señal de compatibilidad del sistema móvil... (Prueba a limpiar caché)";
+            }
         }
-
-        // Monitorear si el celular realmente aprueba la app como instalable
-        window.addEventListener('beforeinstallprompt', (e) => {
-            console.log("¡Éxito! El sistema operativo Android aprobó la instalación de la PWA.");
-            const p6Status = document.getElementById('p6-status');
-            const p6Desc = document.getElementById('p6-desc');
-            p6Status.innerText = "🟢";
-            p6Desc.innerText = "¡Compatible! Tu celular acaba de aprobar la instalación. Ya puedes añadirla.";
-        });
     </script>
 </body>
 </html>
