@@ -299,6 +299,16 @@
         }
 
         document.getElementById('btn-theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+
+        // ACTIVACIÓN AUTOMÁTICA DEL SERVICE WORKER (Para permitir la instalación PWA)
+        // Corregido con validación de protocolo para evitar errores en entornos de simulación y previsualizaciones locales
+        if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registrado con éxito', reg))
+                    .catch(err => console.error('Error registrando Service Worker', err));
+            });
+        }
     </script>
 </body>
 </html>
