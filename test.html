@@ -15,13 +15,22 @@
         const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwQDmRWYnlDoF2De-KhqG1C_1GdoA-KbzhiAK_ODOzNEPMwtx-1pAD8AgNHqFk0SvQZ/exec";
         let facturasGlobales = [];
         let proyectoFiltroActual = "TODOS";
+
+        // Cargar listado de proyectos desde la memoria local o iniciar con los predeterminados
+        let listaProyectos = ["General", "Proyecto Alfa", "Proyecto Beta", "Mantenimiento Red"];
+        if (localStorage.getItem("pwa_test_proyectos")) {
+            listaProyectos = JSON.parse(localStorage.getItem("pwa_test_proyectos"));
+        } else {
+            localStorage.setItem("pwa_test_proyectos", JSON.stringify(listaProyectos));
+        }
     </script>
 
     <div class="bg-gradient-to-r from-indigo-700 to-purple-700 text-white p-3 shadow-md sticky top-0 z-50 text-center text-xs font-bold tracking-wide">
-        🧪 ENTORNO DE PRUEBAS AMBULARES (SANDOBOX) • ASIGNACIÓN POR PROYECTO
+        🧪 ENTORNO DE PRUEBAS AMBULARES (SANDOBOX) • CREACIÓN DE PROYECTOS DINÁMICOS
     </div>
 
     <div class="max-w-md mx-auto p-4">
+        <!-- Cabecera de la App -->
         <header class="flex justify-between items-center mb-6">
             <div>
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Mis Rendiciones</h1>
@@ -32,6 +41,7 @@
             </button>
         </header>
 
+        <!-- 1. Cargar Escaneo -->
         <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
             <h2 class="text-lg font-semibold mb-3">1. Cargar Escaneo</h2>
             <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer bg-gray-50 dark:bg-slate-900">
@@ -43,6 +53,7 @@
             </div>
         </div>
 
+        <!-- 2. Datos Detectados + Creación de Proyectos -->
         <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6">
             <h2 class="text-lg font-semibold mb-3">2. Datos Detectados</h2>
             <div class="space-y-3">
@@ -52,14 +63,29 @@
                     <input id="form-monto" type="number" class="w-full p-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm" placeholder="Monto">
                 </div>
                 
+                <!-- Selector de Proyecto con Botón de Creación Dinámica -->
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">Asignar a Proyecto:</label>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Asignar a Proyecto:</label>
+                        <button onclick="toggleNuevoProyectoUI()" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer flex items-center gap-0.5">
+                            ➕ Crear Nuevo
+                        </button>
+                    </div>
+                    
                     <select id="form-proyecto" class="w-full p-2.5 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-sm font-semibold focus:ring-2 focus:ring-indigo-500">
-                        <option value="General">General / Gastos Comunes</option>
-                        <option value="Proyecto Alfa">Proyecto Alfa</option>
-                        <option value="Proyecto Beta">Proyecto Beta</option>
-                        <option value="Mantenimiento Red">Mantenimiento Red</option>
+                        <!-- Se poblará dinámicamente -->
                     </select>
+
+                    <!-- Formulario Desplegable para añadir nuevo proyecto -->
+                    <div id="nuevo-proyecto-container" class="hidden mt-2 p-3 bg-indigo-50 dark:bg-slate-900/50 border border-indigo-100 dark:border-indigo-950/50 rounded-lg transition-all">
+                        <p class="text-[11px] text-indigo-700 dark:text-indigo-300 font-bold mb-1.5 uppercase tracking-wide">Nuevo Proyecto:</p>
+                        <div class="flex gap-2">
+                            <input id="input-nuevo-proyecto" type="text" class="flex-1 p-2 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg text-xs" placeholder="Nombre de la obra/carpeta...">
+                            <button onclick="agregarNuevoProyecto()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-xs font-bold cursor-pointer shrink-0">
+                                Añadir
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <button id="btn-guardar" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white p-2.5 rounded-lg font-bold cursor-pointer transition-colors text-sm">Guardar en Carpeta Virtual</button>
@@ -68,21 +94,18 @@
 
         <div id="panel-reportes" class="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-700 mb-6 hidden flex gap-3">
             <button onclick="enviarWhatsApp()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors">
-                Enviar Reporte Agrupado (WA)
+                Enviar por WhatsApp
             </button>
             <button onclick="copiarReporteTexto()" class="flex-1 bg-slate-600 hover:bg-slate-700 text-white p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors">
                 Copiar Reporte Completo
             </button>
         </div>
 
+        <!-- FILTROS DE HISTORIAL DINÁMICOS -->
         <div class="mb-4">
             <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">📁 Filtrar Historial por Proyecto:</label>
-            <div class="flex gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
-                <button onclick="filtrarHistorial('TODOS')" id="flt-TODOS" class="px-3 py-1.5 rounded-full font-bold bg-indigo-600 text-white cursor-pointer shrink-0">Todos</button>
-                <button onclick="filtrarHistorial('General')" id="flt-General" class="px-3 py-1.5 rounded-full font-bold bg-white dark:bg-slate-800 border text-gray-600 dark:text-gray-300 cursor-pointer shrink-0">General</button>
-                <button onclick="filtrarHistorial('Proyecto Alfa')" id="flt-Proyecto Alfa" class="px-3 py-1.5 rounded-full font-bold bg-white dark:bg-slate-800 border text-gray-600 dark:text-gray-300 cursor-pointer shrink-0">Alfa</button>
-                <button onclick="filtrarHistorial('Proyecto Beta')" id="flt-Proyecto Beta" class="px-3 py-1.5 rounded-full font-bold bg-white dark:bg-slate-800 border text-gray-600 dark:text-gray-300 cursor-pointer shrink-0">Beta</button>
-                <button onclick="filtrarHistorial('Mantenimiento Red')" id="flt-Mantenimiento Red" class="px-3 py-1.5 rounded-full font-bold bg-white dark:bg-slate-800 border text-gray-600 dark:text-gray-300 cursor-pointer shrink-0">Red</button>
+            <div id="filtros-proyectos-container" class="flex gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
+                <!-- Se poblará dinámicamente -->
             </div>
         </div>
 
@@ -102,8 +125,78 @@
         const panelReportes = document.getElementById('panel-reportes');
 
         document.addEventListener('DOMContentLoaded', () => {
+            actualizarSelectProyectos();
+            renderizarFiltros();
             cargarFacturasDesdeSheet();
         });
+
+        // --- SISTEMA DINÁMICO DE CREACIÓN DE PROYECTOS ---
+        
+        function toggleNuevoProyectoUI() {
+            const container = document.getElementById("nuevo-proyecto-container");
+            container.classList.toggle("hidden");
+            if (!container.classList.contains("hidden")) {
+                document.getElementById("input-nuevo-proyecto").focus();
+            }
+        }
+
+        function agregarNuevoProyecto() {
+            const input = document.getElementById("input-nuevo-proyecto");
+            const nuevoNombre = input.value.trim();
+
+            if (!nuevoNombre) {
+                alert("Por favor, ingresa un nombre para el nuevo proyecto.");
+                return;
+            }
+
+            // Evitar duplicar nombres de carpetas
+            if (listaProyectos.some(p => p.toLowerCase() === nuevoNombre.toLowerCase())) {
+                alert("Ese proyecto o carpeta ya existe.");
+                return;
+            }
+
+            listaProyectos.push(nuevoNombre);
+            localStorage.setItem("pwa_test_proyectos", JSON.stringify(listaProyectos));
+
+            actualizarSelectProyectos();
+            renderizarFiltros();
+
+            // Seleccionar automáticamente el proyecto que acabas de crear
+            formProyecto.value = nuevoNombre;
+
+            // Limpiar entrada y ocultar el panel
+            input.value = "";
+            document.getElementById("nuevo-proyecto-container").classList.add("hidden");
+        }
+
+        function actualizarSelectProyectos() {
+            formProyecto.innerHTML = "";
+            listaProyectos.forEach(p => {
+                const opt = document.createElement("option");
+                opt.value = p;
+                opt.textContent = p === "General" ? "General / Gastos Comunes" : p;
+                formProyecto.appendChild(opt);
+            });
+        }
+
+        function renderizarFiltros() {
+            const container = document.getElementById('filtros-proyectos-container');
+            if (!container) return;
+
+            let html = `<button onclick="filtrarHistorial('TODOS')" id="flt-TODOS" class="px-3 py-1.5 rounded-full font-bold ${proyectoFiltroActual === 'TODOS' ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300'} cursor-pointer shrink-0">Todos</button>`;
+
+            listaProyectos.forEach(p => {
+                const activo = proyectoFiltroActual === p;
+                // Mostrar una versión más corta del nombre en el botón para optimizar espacio
+                const nombreCorto = p.replace("Proyecto ", "");
+                
+                html += `<button onclick="filtrarHistorial('${p}')" id="flt-${p}" class="px-3 py-1.5 rounded-full font-bold ${activo ? 'bg-indigo-600 text-white' : 'bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300'} cursor-pointer shrink-0">${nombreCorto}</button>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // --- GESTIÓN GENERAL DE LA APLICACIÓN ---
 
         inputFactura.addEventListener('change', async function(e) {
             const archivo = e.target.files[0];
@@ -154,7 +247,7 @@
                 return;
             }
 
-            // CONTROL DE DUPLICADOS MEJORADO: Te avisa de forma global bajo qué proyecto está guardado
+            // CONTROL DE DUPLICADOS MEJORADO
             if (numero && numero !== "" && numero.toUpperCase() !== "S/N") {
                 const normalizar = (val) => String(val).replace(/[\s\.\-\,\/]/g, '').replace(/^0+/, '').trim();
                 const numeroNuevoNormalizado = normalizar(numero);
@@ -204,15 +297,7 @@
 
         function filtrarHistorial(proyecto) {
             proyectoFiltroActual = proyecto;
-            // Estilos de los botones de filtro
-            ["TODOS", "General", "Proyecto Alfa", "Proyecto Beta", "Mantenimiento Red"].forEach(p => {
-                const btn = document.getElementById(`flt-${p}`);
-                if(p === proyecto) {
-                    btn.className = "px-3 py-1.5 rounded-full font-bold bg-indigo-600 text-white cursor-pointer shrink-0";
-                } else {
-                    btn.className = "px-3 py-1.5 rounded-full font-bold bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300 cursor-pointer shrink-0";
-                }
-            });
+            renderizarFiltros();
             renderizarHistorial();
         }
 
@@ -224,6 +309,14 @@
                 if (f.estado === "Pendiente") pendientesTotales++;
                 return proyectoFiltroActual === "TODOS" || f.proyecto === proyectoFiltroActual;
             });
+
+            // Colores de bordes dinámicos para los proyectos conocidos. Los nuevos tendrán un color índigo por defecto.
+            const coloresBordes = {
+                "General": "border-l-gray-400",
+                "Proyecto Alfa": "border-l-orange-500",
+                "Proyecto Beta": "border-l-purple-500",
+                "Mantenimiento Red": "border-l-blue-500"
+            };
 
             datosFiltrados.forEach(f => {
                 let infoFecha = "Fecha no disponible";
@@ -240,8 +333,10 @@
                     }
                 }
 
+                const colorClase = coloresBordes[f.proyecto] || "border-l-indigo-500";
+
                 listaFacturas.innerHTML += `
-                    <div class="p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 flex justify-between items-center shadow-sm border-l-4 ${f.proyecto === 'Proyecto Alfa' ? 'border-l-orange-500' : f.proyecto === 'Proyecto Beta' ? 'border-l-purple-500' : f.proyecto === 'Mantenimiento Red' ? 'border-l-blue-500' : 'border-l-gray-400'}">
+                    <div class="p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 flex justify-between items-center shadow-sm border-l-4 ${colorClase}">
                         <div>
                             <div class="flex items-center gap-1.5">
                                 <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 font-bold rounded bg-slate-100 dark:bg-slate-900 text-gray-600 dark:text-gray-400">${f.proyecto || 'General'}</span>
@@ -288,12 +383,10 @@
             } catch (e) { alert("Error al eliminar."); }
         }
 
-        // NUEVA FUNCIÓN: Genera el reporte estructurado agrupado ordenadamente por Proyecto
         function construirTextoReporte() {
             const pendientes = facturasGlobales.filter(f => f.estado === "Pendiente");
             if (pendientes.length === 0) return "";
 
-            // Agrupar en memoria por proyecto
             const proyectosMap = {};
             pendientes.forEach(f => {
                 const proj = f.proyecto || "General";
@@ -321,7 +414,7 @@
                 texto += "-----------------------------------\n\n";
             }
             
-            texto += `💵 *TOTAL GLOBAL PENDIENTE:* $${granTotal.toLocaleString('es-CL')}`;
+            texto += `\n💵 *TOTAL GLOBAL PENDIENTE:* $${granTotal.toLocaleString('es-CL')}`;
             return texto;
         }
 
