@@ -419,9 +419,17 @@
             listaFacturas.innerHTML = "";
             let pendientesTotales = 0;
 
+            // ✅ FILTRADO INTELIGENTE (Ignora mayúsculas y espacios extra)
             const datosFiltrados = facturasGlobales.filter(f => {
                 if (f.estado === "Pendiente") pendientesTotales++;
-                return proyectoFiltroActual === "TODOS" || f.proyecto === proyectoFiltroActual;
+                
+                if (proyectoFiltroActual === "TODOS") return true;
+                
+                // Compara normalizando ambos lados (trim y toLowerCase)
+                const proyectoFactura = String(f.proyecto || "General").trim().toLowerCase();
+                const proyectoFiltro = String(proyectoFiltroActual).trim().toLowerCase();
+                
+                return proyectoFactura === proyectoFiltro;
             });
 
             // Código de color de bordes laterales por proyecto conocido
