@@ -22,7 +22,7 @@
         let deferredPrompt = null; // Almacena el evento de instalación nativo
 
         // Cargar listado de proyectos desde la memoria local o iniciar con los predeterminados
-        let listaProyectos = ["General", "Proyecto Alfa", "Proyecto Beta", "Mantenimiento Red"];
+        let listaProyectos = ["General"];
         if (localStorage.getItem("pwa_proyectos")) {
             listaProyectos = JSON.parse(localStorage.getItem("pwa_proyectos"));
         } else {
