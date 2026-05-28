@@ -7,6 +7,8 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1e293b">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body class="bg-gray-100 dark:bg-slate-900 text-gray-800 dark:text-slate-200 font-sans antialiased pb-24 transition-colors duration-200">
 
@@ -16,6 +18,7 @@
         
         let facturasGlobales = [];
         let proyectoFiltroActual = "TODOS";
+        let estadoFiltroActual = "TODOS";
         let deferredPrompt = null; // Almacena el evento de instalación nativo
 
         // Cargar listado de proyectos desde la memoria local o iniciar con los predeterminados
@@ -26,6 +29,9 @@
             localStorage.setItem("pwa_proyectos", JSON.stringify(listaProyectos));
         }
     </script>
+
+    <!-- TOAST -->
+    <div id="toast-msg" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:9999;background:#1e293b;color:#fff;padding:10px 22px;border-radius:999px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,0.25);transition:opacity .3s;">✔ Guardado correctamente</div>
 
     <div id="banner-instalar" class="hidden bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 shadow-md sticky top-0 z-50 transition-all duration-300">
         <div class="max-w-md mx-auto flex items-center justify-between gap-3">
@@ -122,6 +128,33 @@
             <label class="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">📁 Filtrar Historial por Proyecto:</label>
             <div id="filtros-proyectos-container" class="flex gap-1.5 overflow-x-auto pb-1 text-xs scrollbar-none">
             </div>
+        </div>
+
+        <!-- FILTRO ESTADO -->
+        <div class="mb-4 flex items-center gap-2 flex-wrap">
+            <label class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">⚡ Estado:</label>
+            <div id="filtros-estado-container" class="flex gap-1.5 text-xs">
+                <button id="fst-TODOS" class="px-3 py-1.5 rounded-full font-bold bg-blue-600 text-white cursor-pointer shrink-0">Todos</button>
+                <button id="fst-Pendiente" class="px-3 py-1.5 rounded-full font-bold bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300 cursor-pointer shrink-0">Pendiente</button>
+                <button id="fst-Pagada" class="px-3 py-1.5 rounded-full font-bold bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300 cursor-pointer shrink-0">Pagada</button>
+            </div>
+            <button onclick="generarPDF()" class="ml-auto flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-full cursor-pointer shrink-0 transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                PDF
+            </button>
+        </div>
+
+        <!-- INDICADOR DE CARGA -->
+        <div id="loading-indicator" class="hidden text-center py-10">
+            <div style="width:36px;height:36px;border:3px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 10px;"></div>
+            <p class="text-sm text-gray-400 dark:text-slate-500">Cargando rendiciones...</p>
+        </div>
+        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+        <!-- MENSAJE DE ERROR RED -->
+        <div id="error-red" class="hidden bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl p-4 text-center mb-4">
+            <p class="text-red-600 dark:text-red-400 font-semibold text-sm mb-2">⚠️ No se pudo conectar con Google Sheets</p>
+            <button onclick="cargarFacturasDesdeSheet()" class="text-xs bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg font-bold cursor-pointer">Reintentar</button>
         </div>
 
         <div id="lista-facturas" class="space-y-3"></div>
@@ -385,7 +418,53 @@
             }
         });
 
+        // ── TOAST ──────────────────────────────────────────────────────────
+        function mostrarToast(msg, color) {
+            const t = document.getElementById('toast-msg');
+            t.textContent = msg;
+            t.style.background = color || '#1e293b';
+            t.style.display = 'block';
+            t.style.opacity = '1';
+            clearTimeout(t._timer);
+            t._timer = setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.style.display = 'none', 300); }, 2500);
+        }
+
+        // ── COLORES DINÁMICOS POR PROYECTO ──────────────────────────────────
+        const PALETA_COLORES = [
+            '#6366f1','#f59e0b','#8b5cf6','#3b82f6','#10b981',
+            '#f43f5e','#14b8a6','#f97316','#06b6d4','#84cc16'
+        ];
+        const mapColoresProyecto = {};
+        function getColorProyecto(nombre) {
+            if (!mapColoresProyecto[nombre]) {
+                const idx = Object.keys(mapColoresProyecto).length % PALETA_COLORES.length;
+                mapColoresProyecto[nombre] = PALETA_COLORES[idx];
+            }
+            return mapColoresProyecto[nombre];
+        }
+
+        // ── FILTRO DE ESTADO ────────────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            ['TODOS','Pendiente','Pagada'].forEach(estado => {
+                const btn = document.getElementById('fst-' + estado);
+                if (btn) btn.addEventListener('click', () => {
+                    estadoFiltroActual = estado;
+                    document.querySelectorAll('[id^="fst-"]').forEach(b => {
+                        b.className = b.className.replace('bg-blue-600 text-white','bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300');
+                    });
+                    btn.className = btn.className.replace('bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300','bg-blue-600 text-white');
+                    renderizarHistorial();
+                });
+            });
+        });
+
         async function cargarFacturasDesdeSheet() {
+            const loading = document.getElementById('loading-indicator');
+            const errorRed = document.getElementById('error-red');
+            if (loading) loading.classList.remove('hidden');
+            if (errorRed) errorRed.classList.add('hidden');
+            listaFacturas.innerHTML = '';
+
             try {
                 const response = await fetch(WEB_APP_URL);
                 const datos = await response.json();
@@ -396,15 +475,10 @@
                 
                 datos.forEach(f => {
                     if (f.proyecto) {
-                        // Limpiar espacios en blanco adicionales alrededor del nombre
                         const nombreProyectoSheet = String(f.proyecto).trim(); 
-                        
                         if (nombreProyectoSheet !== "") {
-                            // Verificar si este proyecto ya existe en la lista del teléfono (sin importar mayúsculas/minúsculas)
                             const existe = listaProyectos.some(p => p.toLowerCase() === nombreProyectoSheet.toLowerCase());
-                            
                             if (!existe) {
-                                // ¡Encontramos un proyecto en el Sheet que el teléfono no conocía! Lo añadimos.
                                 listaProyectos.push(nombreProyectoSheet);
                                 huboCambiosEnProyectos = true;
                             }
@@ -412,46 +486,41 @@
                     }
                 });
 
-                // Si encontramos proyectos nuevos en el Sheet, actualizamos la memoria local y los menús
                 if (huboCambiosEnProyectos) {
                     localStorage.setItem("pwa_proyectos", JSON.stringify(listaProyectos));
                     actualizarSelectProyectos();
                     actualizarListaEliminarProyectos();
                 }
 
-                // Volver a dibujar los botones de filtro y la lista en pantalla
                 renderizarFiltros();
                 renderizarHistorial();
 
             } catch (e) { 
                 console.error("Error al cargar datos:", e);
-                listaFacturas.innerText = "Error cargando datos desde la planilla."; 
+                if (errorRed) errorRed.classList.remove('hidden');
+            } finally {
+                if (loading) loading.classList.add('hidden');
             }
         }
         function renderizarHistorial() {
             listaFacturas.innerHTML = "";
             let pendientesTotales = 0;
 
-            // ✅ FILTRADO INTELIGENTE (Ignora mayúsculas y espacios extra)
             const datosFiltrados = facturasGlobales.filter(f => {
                 if (f.estado === "Pendiente") pendientesTotales++;
-                
-                if (proyectoFiltroActual === "TODOS") return true;
-                
-                // Compara normalizando ambos lados (trim y toLowerCase)
+
                 const proyectoFactura = String(f.proyecto || "General").trim().toLowerCase();
                 const proyectoFiltro = String(proyectoFiltroActual).trim().toLowerCase();
-                
-                return proyectoFactura === proyectoFiltro;
+                const pasaProyecto = proyectoFiltroActual === "TODOS" || proyectoFactura === proyectoFiltro;
+
+                const pasaEstado = estadoFiltroActual === "TODOS" || f.estado === estadoFiltroActual;
+
+                return pasaProyecto && pasaEstado;
             });
 
-            // Código de color de bordes laterales por proyecto conocido
-            const coloresBordes = {
-                "General": "border-l-gray-400",
-                "Proyecto Alfa": "border-l-orange-500",
-                "Proyecto Beta": "border-l-purple-500",
-                "Mantenimiento Red": "border-l-blue-500"
-            };
+            if (datosFiltrados.length === 0) {
+                listaFacturas.innerHTML = '<p class="text-center text-gray-400 dark:text-slate-500 text-sm py-10">No hay registros con estos filtros.</p>';
+            }
 
             datosFiltrados.forEach(f => {
                 let infoFecha = "Fecha no disponible";
@@ -463,33 +532,35 @@
                             const dias = Math.floor((new Date().getTime() - fObj.getTime()) / (1000 * 60 * 60 * 24));
                             infoFecha = `${fechaString} (${dias === 0 ? 'Hoy' : 'Hace ' + dias + ' días'})`;
                         } else {
-                            infoFecha = `${fechaString}`;
+                            infoFecha = fechaString;
                         }
                     }
                 }
 
-                const colorClase = coloresBordes[f.proyecto] || "border-l-blue-600";
-
-                listaFacturas.innerHTML += `
-                    <div class="p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 flex justify-between items-center shadow-sm border-l-4 ${colorClase}">
-                        <div>
-                            <div class="flex items-center gap-1.5">
-                                <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 font-bold rounded bg-slate-100 dark:bg-slate-900 text-gray-600 dark:text-gray-400">${f.proyecto || 'General'}</span>
-                            </div>
-                            <p class="font-bold text-gray-900 dark:text-white mt-1">${f.empresa}</p>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">N° ${f.numero || 'S/N'} • $${Number(f.monto).toLocaleString('es-CL')}</p>
-                            <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 font-mono">Rendida: ${infoFecha}</p>
-                            <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded ${f.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400'}">${f.estado}</span>
+                // Color dinámico por proyecto
+                const colorHex = getColorProyecto(f.proyecto || 'General');
+                const card = document.createElement('div');
+                card.className = "p-4 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 flex justify-between items-center shadow-sm border-l-4";
+                card.style.borderLeftColor = colorHex;
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-[10px] uppercase tracking-wider px-2 py-0.5 font-bold rounded" style="background:${colorHex}22;color:${colorHex}">${f.proyecto || 'General'}</span>
                         </div>
-                        <div class="flex items-center gap-2">
-                            ${f.estado === "Pendiente" ? `<button onclick="marcarComoPagada('${f.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer">PAGADA</button>` : ''}
-                            <button onclick="eliminarRegistro('${f.id}')" class="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer" title="Eliminar">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                </svg>
-                            </button>
-                        </div>
+                        <p class="font-bold text-gray-900 dark:text-white mt-1">${f.empresa}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">N° ${f.numero || 'S/N'} • $${Number(f.monto).toLocaleString('es-CL')}</p>
+                        <p class="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 font-mono">Rendida: ${infoFecha}</p>
+                        <span class="inline-block mt-1 text-xs px-2 py-0.5 rounded ${f.estado === 'Pendiente' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-400'}">${f.estado}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        ${f.estado === "Pendiente" ? `<button onclick="marcarComoPagada('${f.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer">PAGADA</button>` : ''}
+                        <button onclick="eliminarRegistro('${f.id}')" class="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 cursor-pointer" title="Eliminar">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
                     </div>`;
+                listaFacturas.appendChild(card);
             });
 
             contadorPendientes.innerText = pendientesTotales + " Pendientes";
@@ -567,6 +638,112 @@
                 await navigator.clipboard.writeText(msg);
                 alert("Reporte completo por Proyectos copiado perfectamente.");
             } catch (err) { alert("No se pudo copiar automáticamente."); }
+        }
+
+
+        // ── GENERAR PDF ─────────────────────────────────────────────────────
+        function generarPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            const pageW = doc.internal.pageSize.getWidth();
+            const margin = 14;
+            let y = margin;
+
+            // Encabezado
+            doc.setFontSize(16);
+            doc.setTextColor(30, 41, 59);
+            doc.setFont('helvetica', 'bold');
+            doc.text('REPORTE DE RENDICIONES', margin, y);
+            doc.setFontSize(9);
+            doc.setTextColor(100);
+            doc.setFont('helvetica', 'normal');
+            const filtroTexto = `Proyecto: ${proyectoFiltroActual === 'TODOS' ? 'Todos' : proyectoFiltroActual}  |  Estado: ${estadoFiltroActual === 'TODOS' ? 'Todos' : estadoFiltroActual}`;
+            doc.text(filtroTexto, margin, y + 6);
+            doc.text(`Fecha: ${new Date().toLocaleDateString('es-CL')}`, pageW - margin, y + 3, { align: 'right' });
+
+            y += 12;
+            doc.setDrawColor(30, 41, 59);
+            doc.setLineWidth(0.4);
+            doc.line(margin, y, pageW - margin, y);
+            y += 6;
+
+            // Datos filtrados
+            const datos = facturasGlobales.filter(f => {
+                const pasaProyecto = proyectoFiltroActual === 'TODOS' || String(f.proyecto || 'General').trim().toLowerCase() === proyectoFiltroActual.trim().toLowerCase();
+                const pasaEstado = estadoFiltroActual === 'TODOS' || f.estado === estadoFiltroActual;
+                return pasaProyecto && pasaEstado;
+            });
+
+            if (datos.length === 0) {
+                alert('No hay datos para exportar con los filtros actuales.');
+                return;
+            }
+
+            // Métricas
+            const totalMonto = datos.reduce((s, f) => s + Number(f.monto || 0), 0);
+            const pendientes = datos.filter(f => f.estado === 'Pendiente');
+            const pagadas = datos.filter(f => f.estado !== 'Pendiente');
+            const montoPendiente = pendientes.reduce((s, f) => s + Number(f.monto || 0), 0);
+            const montoPagado = pagadas.reduce((s, f) => s + Number(f.monto || 0), 0);
+
+            const boxW = 54; const boxH = 14;
+            const metricas = [
+                { label: 'TOTAL REGISTROS', val: String(datos.length), color: [30,41,59] },
+                { label: 'MONTO TOTAL', val: '$'+totalMonto.toLocaleString('es-CL'), color: [30,41,59] },
+                { label: 'PENDIENTE', val: '$'+montoPendiente.toLocaleString('es-CL'), color: [180,45,45] },
+                { label: 'PAGADO', val: '$'+montoPagado.toLocaleString('es-CL'), color: [22,163,74] },
+            ];
+            metricas.forEach((m, i) => {
+                const x = margin + i * (boxW + 3);
+                doc.setFillColor(244,244,245); doc.setDrawColor(200);
+                doc.roundedRect(x, y, boxW, boxH, 2, 2, 'FD');
+                doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...m.color);
+                doc.text(m.val, x + boxW/2, y+7, {align:'center'});
+                doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(100);
+                doc.text(m.label, x + boxW/2, y+12, {align:'center'});
+            });
+            y += boxH + 6;
+
+            // Tabla
+            const rows = datos.map((f, i) => [
+                i+1,
+                f.proyecto || 'General',
+                f.empresa || '',
+                f.numero || 'S/N',
+                '$'+Number(f.monto||0).toLocaleString('es-CL'),
+                f.estado || ''
+            ]);
+
+            doc.autoTable({
+                startY: y,
+                margin: { left: margin, right: margin },
+                head: [['N°','Proyecto','Empresa','N° Doc','Monto','Estado']],
+                body: rows,
+                styles: { fontSize: 9, cellPadding: 3 },
+                headStyles: { fillColor: [30,41,59], textColor: [255,255,255], fontStyle: 'bold', fontSize: 8 },
+                columnStyles: {
+                    0: { cellWidth: 8, halign: 'center' },
+                    1: { cellWidth: 32 },
+                    2: { cellWidth: 55 },
+                    3: { cellWidth: 22, halign: 'center' },
+                    4: { cellWidth: 28, halign: 'right' },
+                    5: { cellWidth: 22, halign: 'center' }
+                },
+                didParseCell: function(d) {
+                    if (d.section === 'body' && d.column.index === 5) {
+                        d.cell.styles.textColor = d.cell.raw === 'Pendiente' ? [180,45,45] : [22,163,74];
+                        d.cell.styles.fontStyle = 'bold';
+                    }
+                },
+                alternateRowStyles: { fillColor: [248,250,252] },
+                didDrawPage: function(d) {
+                    doc.setFontSize(8); doc.setTextColor(150);
+                    doc.text('Pág. '+d.pageNumber, pageW-margin, doc.internal.pageSize.getHeight()-8, {align:'right'});
+                }
+            });
+
+            const fecha = new Date().toLocaleDateString('es-CL').replace(/\//g,'-');
+            doc.save(`rendiciones_${fecha}.pdf`);
         }
 
         document.getElementById('btn-theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
